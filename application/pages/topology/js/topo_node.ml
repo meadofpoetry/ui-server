@@ -3,10 +3,11 @@ open Application_types
 
 type node_entry = Topo_types.node_entry
 
-let input_to_area ({input; id} : Topology.topo_input) =
+let input_to_area ({ input; id } : Topology.topo_input) =
   Printf.sprintf "%s-%d" (Topology.input_to_string input) id
 
-let board_to_area ({manufacturer; model; version; control; _} : Topology.topo_board) =
+let board_to_area
+    ({ manufacturer; model; version; control; _ } : Topology.topo_board) =
   Printf.sprintf "%s-%s-v%d-%d" manufacturer model version control
 
 let node_entry_to_area = function
@@ -27,13 +28,9 @@ class t ~node ~body elt () =
     method output_point = Topo_path.get_output_point body
   end
 
-class parent
-  ~port_setter
-  ~(connections : (#t * Topo_types.connection_point) list)
-  ~(node : node_entry)
-  ~(body : #Dom_html.element Js.t)
-  elt
-  () =
+class parent ~port_setter
+  ~(connections : (#t * Topo_types.connection_point) list) ~(node : node_entry)
+  ~(body : #Dom_html.element Js.t) elt () =
   let num = List.length connections in
   let paths =
     List.mapi
@@ -41,12 +38,7 @@ class parent
         let f_lp () = x#output_point in
         let f_rp () = Topo_path.get_input_point ~num i body in
         new Topo_path.t
-          ~left_node:x#node_entry
-          ~right_point:p
-          ~f_lp
-          ~f_rp
-          ~port_setter
-          ())
+          ~left_node:x#node_entry ~right_point:p ~f_lp ~f_rp ~port_setter ())
       connections
   in
   let switches = List.filter_map (fun x -> x#switch) paths in
@@ -62,8 +54,7 @@ class parent
     method! init () : unit =
       super#init ();
       let s =
-        React.S.map
-          ~eq:( = )
+        React.S.map ~eq:( = )
           (fun x -> List.iter (fun s -> s#set_forbidden x) switches)
           s_switch_changing
       in

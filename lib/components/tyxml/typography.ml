@@ -82,24 +82,18 @@ struct
 
   let ( % ) f g x = f (g x)
 
-  let typography
-      ?(classes = return [])
-      ?(a = [])
-      ?(font : font option)
-      ?text
-      ?(children = nil ())
-      () =
+  let typography ?(classes = return []) ?(a = []) ?(font : font option) ?text
+      ?(children = nil ()) () =
     let font_class =
-      match font with
-      | None -> None
-      | Some x -> Some (font_to_class x)
+      match font with None -> None | Some x -> Some (font_to_class x)
     in
-    let classes = fmap (Utils.cons_option font_class % List.cons CSS.root) classes in
-    span
-      ~a:(a_class classes :: a)
-      (match text with
+    let classes =
+      fmap (Utils.cons_option font_class % List.cons CSS.root) classes
+    in
+    span ~a:(a_class classes :: a)
+      ( match text with
       | None -> children
-      | Some text -> cons (return (txt text)) children)
+      | Some text -> cons (return (txt text)) children )
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

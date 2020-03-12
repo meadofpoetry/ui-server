@@ -6,4 +6,8 @@ let parse bs off =
     | Ok s -> s
     | Error _ -> "Unable to decode"
   in
-  [Node.make ~offset:off (Bitstring.bitstring_length bs) "bouquet name" (String s)]
+  [
+    Node.make ~offset:off
+      (Bitstring.bitstring_length bs)
+      "bouquet name" (String s);
+  ]

@@ -17,12 +17,10 @@ let parse bs off =
     ->
       let parsed = parse_coding_type coding_type in
       let nodes =
-        [ Node.make ~offset:off 6 "reserved_future_use" (Bits (Int rfu))
-        ; Node.make
-            ~parsed
-            ~offset:(off + off_1)
-            2
-            "coding_type"
-            (Bits (Int coding_type)) ]
+        [
+          Node.make ~offset:off 6 "reserved_future_use" (Bits (Int rfu));
+          Node.make ~parsed ~offset:(off + off_1) 2 "coding_type"
+            (Bits (Int coding_type));
+        ]
       in
       nodes @ Bytes.parse ~bytes:4 ~offset:(off + off_2) rest "centre_frequency"

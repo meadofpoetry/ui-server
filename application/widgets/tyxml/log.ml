@@ -36,10 +36,11 @@ struct
 
   let timestamp_fmt =
     Fmt.Custom
-      { to_string = Time.to_human_string
-      ; of_string = (fun _ -> assert false) (* TODO *)
-      ; compare = Ptime.compare
-      ; is_numeric = false
+      {
+        to_string = Time.to_human_string;
+        of_string = (fun _ -> assert false) (* TODO *);
+        compare = Ptime.compare;
+        is_numeric = false;
       }
 
   let pid_to_hex_string = Printf.sprintf "0x%04X"
@@ -48,10 +49,11 @@ struct
 
   let hex_pid_fmt =
     Fmt.Custom
-      { to_string = pid_to_hex_string
-      ; of_string = int_of_string
-      ; compare
-      ; is_numeric = true
+      {
+        to_string = pid_to_hex_string;
+        of_string = int_of_string;
+        compare;
+        is_numeric = true;
       }
 
   let pid_fmt ~hex =
@@ -70,25 +72,27 @@ struct
   let create_table_format ?(hex = return false) () : _ Fmt.format =
     let pid_fmt = fmap (fun hex -> Fmt.Option (pid_fmt ~hex, "-")) hex in
     Fmt.
-      [ make_column ~sortable:true ~title:(return "Время") (return timestamp_fmt)
-      ; make_column ~sortable:true ~title:(return "Уровень") (return Fmt.String)
-      ; make_column ~title:(return "Событие") (return Fmt.String)
-      ; make_column ~sortable:true ~title:(return "PID") pid_fmt
-      ; make_column
-          ~sortable:true
-          ~title:(return "Сервис")
-          (return Fmt.(Option (String, "-")))
-      ; make_column ~title:(return "Подробности") (return Fmt.String)
+      [
+        make_column ~sortable:true ~title:(return "Время")
+          (return timestamp_fmt);
+        make_column ~sortable:true ~title:(return "Уровень")
+          (return Fmt.String);
+        make_column ~title:(return "Событие") (return Fmt.String);
+        make_column ~sortable:true ~title:(return "PID") pid_fmt;
+        make_column ~sortable:true ~title:(return "Сервис")
+          (return Fmt.(Option (String, "-")));
+        make_column ~title:(return "Подробности") (return Fmt.String);
       ]
 
   let data_of_log_entry (entry : Stream.Log_message.t) : _ Fmt.data =
     Fmt.
-      [ return entry.time
-      ; return (log_level_to_human_string entry.level)
-      ; return entry.message
-      ; return entry.pid
-      ; return entry.service
-      ; return entry.info
+      [
+        return entry.time;
+        return (log_level_to_human_string entry.level);
+        return entry.message;
+        return entry.pid;
+        return entry.service;
+        return entry.info;
       ]
 
   let row_of_log_entry ~format (entry : Stream.Log_message.t) =
@@ -96,8 +100,7 @@ struct
     let cells = Data_table_markup.data_table_cells_of_fmt format data in
     Data_table_markup.data_table_row
       ~classes:(return [ CSS.entry; CSS.entry_log_level entry.level ])
-      ~children:cells
-      ()
+      ~children:cells ()
 
   let create_footer ?a ?(classes = return []) ?(has_more = false) () =
     let classes = fmap (fun x -> CSS.footer :: x) classes in
@@ -111,25 +114,19 @@ struct
     let actions =
       Card_markup.card_action_buttons ~children:(Xml.Wutils.const [ more ]) ()
     in
-    Card_markup.card_actions ?a ~classes ~children:(Xml.Wutils.const [ actions ]) ()
+    Card_markup.card_actions ?a ~classes
+      ~children:(Xml.Wutils.const [ actions ])
+      ()
 
-  let create
-      ?(a = [])
-      ?(classes = return [])
-      ?(dense = true)
-      ?(hex = return false)
-      ?has_more
-      ?(init = nil ())
-      () =
+  let create ?(a = []) ?(classes = return []) ?(dense = true)
+      ?(hex = return false) ?has_more ?(init = nil ()) () =
     let classes = fmap (fun x -> CSS.root :: x) classes in
     let format = create_table_format ~hex () in
     let rows = Xml.W.map (fun x -> row_of_log_entry ~format x) init in
     let table =
       Data_table_markup.data_table_of_fmt
         ~classes:(return [ CSS.table ])
-        ~dense
-        ~format
-        ~rows
+        ~dense ~format ~rows
         ~footer:(create_footer ?has_more ())
         ()
     in

@@ -73,9 +73,12 @@ class t (elt : Dom_html.element Js.t) () =
         | n -> Printf.sprintf "calc(%g%% - %dpx)" pct n
       in
       let style =
-        Printf.sprintf "width: %s; min-width: %s; margin: 0 %gpx" width width margin
+        Printf.sprintf "width: %s; min-width: %s; margin: 0 %gpx" width width
+          margin
       in
-      iter_nodes (fun item -> item##.style##.cssText := Js.string style) self#items_
+      iter_nodes
+        (fun item -> item##.style##.cssText := Js.string style)
+        self#items_
   end
 
 let attach elt = new t (elt :> Dom_html.element Js.t) ()

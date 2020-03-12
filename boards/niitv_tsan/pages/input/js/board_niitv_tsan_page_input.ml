@@ -17,7 +17,7 @@ let () =
         @@ Yojson.Safe.from_string
         @@ Js.to_string Js.Unsafe.global##.boards
       in
-      match input, boards with
+      match (input, boards) with
       | Ok input, Ok boards ->
           let tsan_boards = List.assoc_opt board_id boards in
           Option.iter

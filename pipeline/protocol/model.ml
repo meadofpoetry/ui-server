@@ -1,25 +1,22 @@
 open Lwt.Infix
 
-type t =
-  { db : Database.Conn.t
-  ; tick  : unit React.event
-  ; _loop : unit Lwt.t
-  }
+type t = { db : Database.Conn.t; tick : unit React.event; _loop : unit Lwt.t }
 
 let tick () =
-  let e,push = React.E.create () in
+  let e, push = React.E.create () in
   let rec loop () =
-    Lwt_unix.sleep 5. >>= fun () -> push (); loop ()
+    Lwt_unix.sleep 5. >>= fun () ->
+    push ();
+    loop ()
   in
-  e, loop
-       
+  (e, loop)
+
 let create db _s_struct _s_status _e_video _e_audio =
-  let (>>=) = Lwt_result.bind in
-  
-  Database.Conn.create db ()
-  >>= fun db ->
-  
+  let ( >>= ) = Lwt_result.bind in
+
+  Database.Conn.create db () >>= fun db ->
   let tick, loop = tick () in
+
   (* Pids *)
   (*
   let strip = let open Structure in List.map (fun s -> s.structure) in
@@ -79,24 +76,25 @@ let create db _s_struct _s_status _e_video _e_audio =
    *)
   (* Errors (TODO) *)
   (*e_video
-  |> Util_react.E.map_p (fun x -> Lwt.catch
-                               (fun () -> Database.Errors.insert_video db x)
-                               (function Failure e -> Lwt_io.printf "vdata error: %s\n" e
-                                       | _ -> Lwt_io.printf "vdata error: UNKNOWN\n"))
-  |> Util_react.E.keep;
+    |> Util_react.E.map_p (fun x -> Lwt.catch
+                                 (fun () -> Database.Errors.insert_video db x)
+                                 (function Failure e -> Lwt_io.printf "vdata error: %s\n" e
+                                         | _ -> Lwt_io.printf "vdata error: UNKNOWN\n"))
+    |> Util_react.E.keep;
 
-  e_audio
-  |> Util_react.E.map_p (fun x -> Lwt.catch (fun () -> Database.Errors.insert_audio db x)
-                               (function Failure e -> Lwt_io.printf "adata error: %s\n" e
-                                       | _ -> Lwt_io.printf "adata error: UNKNOWN\n"))
-  |> Util_react.E.keep;
-   *)
-       
+    e_audio
+    |> Util_react.E.map_p (fun x -> Lwt.catch (fun () -> Database.Errors.insert_audio db x)
+                                 (function Failure e -> Lwt_io.printf "adata error: %s\n" e
+                                         | _ -> Lwt_io.printf "adata error: UNKNOWN\n"))
+    |> Util_react.E.keep;
+  *)
   Lwt.return_ok { db; tick; _loop = loop () }
-  
+
 let set_streams model streams =
   (* Streams *)
-  Lwt.ignore_result 
-    (Database.Streams.init model.db streams >|= fun () ->
-     Util_react.E.keep
-     @@ Util_react.E.map_s (fun () -> Database.Streams.bump model.db) model.tick);
+  Lwt.ignore_result
+    ( Database.Streams.init model.db streams >|= fun () ->
+      Util_react.E.keep
+      @@ Util_react.E.map_s
+           (fun () -> Database.Streams.bump model.db)
+           model.tick )

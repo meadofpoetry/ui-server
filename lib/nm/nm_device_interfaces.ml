@@ -3,241 +3,314 @@ open OBus_value
 open OBus_value.C
 open OBus_member
 open OBus_object
-module Org_freedesktop_NetworkManager_Device =
-struct
+
+module Org_freedesktop_NetworkManager_Device = struct
   let interface = "org.freedesktop.NetworkManager.Device"
-  let m_Delete = {
-    Method.interface = interface;
-    Method.member = "Delete";
-    Method.i_args = (arg0);
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_Disconnect = {
-    Method.interface = interface;
-    Method.member = "Disconnect";
-    Method.i_args = (arg0);
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_GetAppliedConnection = {
-    Method.interface = interface;
-    Method.member = "GetAppliedConnection";
-    Method.i_args = (arg1
-                       (Some "flags", basic_uint32));
-    Method.o_args = (arg2
-                       (Some "connection", dict string (dict string variant))
-                       (Some "version_id", basic_uint64));
-    Method.annotations = [];
-  }
-  let m_Reapply = {
-    Method.interface = interface;
-    Method.member = "Reapply";
-    Method.i_args = (arg3
-                       (Some "connection", dict string (dict string variant))
-                       (Some "version_id", basic_uint64)
-                       (Some "flags", basic_uint32));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let s_StateChanged = {
-    Signal.interface = interface;
-    Signal.member = "StateChanged";
-    Signal.args = (arg3
-                       (Some "new_state", basic_uint32)
-                       (Some "old_state", basic_uint32)
-                       (Some "reason", basic_uint32));
-    Signal.annotations = [];
-  }
-  let p_ActiveConnection = {
-    Property.interface = interface;
-    Property.member = "ActiveConnection";
-    Property.typ = basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Autoconnect = {
-    Property.interface = interface;
-    Property.member = "Autoconnect";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable_writable;
-    Property.annotations = [];
-  }
-  let p_AvailableConnections = {
-    Property.interface = interface;
-    Property.member = "AvailableConnections";
-    Property.typ = array basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Capabilities = {
-    Property.interface = interface;
-    Property.member = "Capabilities";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_DeviceType = {
-    Property.interface = interface;
-    Property.member = "DeviceType";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Dhcp4Config = {
-    Property.interface = interface;
-    Property.member = "Dhcp4Config";
-    Property.typ = basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Dhcp6Config = {
-    Property.interface = interface;
-    Property.member = "Dhcp6Config";
-    Property.typ = basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Driver = {
-    Property.interface = interface;
-    Property.member = "Driver";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_DriverVersion = {
-    Property.interface = interface;
-    Property.member = "DriverVersion";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_FirmwareMissing = {
-    Property.interface = interface;
-    Property.member = "FirmwareMissing";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_FirmwareVersion = {
-    Property.interface = interface;
-    Property.member = "FirmwareVersion";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Interface = {
-    Property.interface = interface;
-    Property.member = "Interface";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Ip4Address = {
-    Property.interface = interface;
-    Property.member = "Ip4Address";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Ip4Config = {
-    Property.interface = interface;
-    Property.member = "Ip4Config";
-    Property.typ = basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Ip6Config = {
-    Property.interface = interface;
-    Property.member = "Ip6Config";
-    Property.typ = basic_object_path;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_IpInterface = {
-    Property.interface = interface;
-    Property.member = "IpInterface";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_LldpNeighbors = {
-    Property.interface = interface;
-    Property.member = "LldpNeighbors";
-    Property.typ = array (dict string variant);
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Managed = {
-    Property.interface = interface;
-    Property.member = "Managed";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable_writable;
-    Property.annotations = [];
-  }
-  let p_Metered = {
-    Property.interface = interface;
-    Property.member = "Metered";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Mtu = {
-    Property.interface = interface;
-    Property.member = "Mtu";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_NmPluginMissing = {
-    Property.interface = interface;
-    Property.member = "NmPluginMissing";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_PhysicalPortId = {
-    Property.interface = interface;
-    Property.member = "PhysicalPortId";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Real = {
-    Property.interface = interface;
-    Property.member = "Real";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_State = {
-    Property.interface = interface;
-    Property.member = "State";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_StateReason = {
-    Property.interface = interface;
-    Property.member = "StateReason";
-    Property.typ = structure (seq2 basic_uint32 basic_uint32);
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Udi = {
-    Property.interface = interface;
-    Property.member = "Udi";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
+
+  let m_Delete =
+    {
+      Method.interface;
+      Method.member = "Delete";
+      Method.i_args = arg0;
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_Disconnect =
+    {
+      Method.interface;
+      Method.member = "Disconnect";
+      Method.i_args = arg0;
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_GetAppliedConnection =
+    {
+      Method.interface;
+      Method.member = "GetAppliedConnection";
+      Method.i_args = arg1 (Some "flags", basic_uint32);
+      Method.o_args =
+        arg2
+          (Some "connection", dict string (dict string variant))
+          (Some "version_id", basic_uint64);
+      Method.annotations = [];
+    }
+
+  let m_Reapply =
+    {
+      Method.interface;
+      Method.member = "Reapply";
+      Method.i_args =
+        arg3
+          (Some "connection", dict string (dict string variant))
+          (Some "version_id", basic_uint64)
+          (Some "flags", basic_uint32);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let s_StateChanged =
+    {
+      Signal.interface;
+      Signal.member = "StateChanged";
+      Signal.args =
+        arg3
+          (Some "new_state", basic_uint32)
+          (Some "old_state", basic_uint32)
+          (Some "reason", basic_uint32);
+      Signal.annotations = [];
+    }
+
+  let p_ActiveConnection =
+    {
+      Property.interface;
+      Property.member = "ActiveConnection";
+      Property.typ = basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Autoconnect =
+    {
+      Property.interface;
+      Property.member = "Autoconnect";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable_writable;
+      Property.annotations = [];
+    }
+
+  let p_AvailableConnections =
+    {
+      Property.interface;
+      Property.member = "AvailableConnections";
+      Property.typ = array basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Capabilities =
+    {
+      Property.interface;
+      Property.member = "Capabilities";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_DeviceType =
+    {
+      Property.interface;
+      Property.member = "DeviceType";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Dhcp4Config =
+    {
+      Property.interface;
+      Property.member = "Dhcp4Config";
+      Property.typ = basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Dhcp6Config =
+    {
+      Property.interface;
+      Property.member = "Dhcp6Config";
+      Property.typ = basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Driver =
+    {
+      Property.interface;
+      Property.member = "Driver";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_DriverVersion =
+    {
+      Property.interface;
+      Property.member = "DriverVersion";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_FirmwareMissing =
+    {
+      Property.interface;
+      Property.member = "FirmwareMissing";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_FirmwareVersion =
+    {
+      Property.interface;
+      Property.member = "FirmwareVersion";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Interface =
+    {
+      Property.interface;
+      Property.member = "Interface";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Ip4Address =
+    {
+      Property.interface;
+      Property.member = "Ip4Address";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Ip4Config =
+    {
+      Property.interface;
+      Property.member = "Ip4Config";
+      Property.typ = basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Ip6Config =
+    {
+      Property.interface;
+      Property.member = "Ip6Config";
+      Property.typ = basic_object_path;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_IpInterface =
+    {
+      Property.interface;
+      Property.member = "IpInterface";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_LldpNeighbors =
+    {
+      Property.interface;
+      Property.member = "LldpNeighbors";
+      Property.typ = array (dict string variant);
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Managed =
+    {
+      Property.interface;
+      Property.member = "Managed";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable_writable;
+      Property.annotations = [];
+    }
+
+  let p_Metered =
+    {
+      Property.interface;
+      Property.member = "Metered";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Mtu =
+    {
+      Property.interface;
+      Property.member = "Mtu";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_NmPluginMissing =
+    {
+      Property.interface;
+      Property.member = "NmPluginMissing";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_PhysicalPortId =
+    {
+      Property.interface;
+      Property.member = "PhysicalPortId";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Real =
+    {
+      Property.interface;
+      Property.member = "Real";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_State =
+    {
+      Property.interface;
+      Property.member = "State";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_StateReason =
+    {
+      Property.interface;
+      Property.member = "StateReason";
+      Property.typ = structure (seq2 basic_uint32 basic_uint32);
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Udi =
+    {
+      Property.interface;
+      Property.member = "Udi";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
   type 'a members = {
     m_Delete : 'a OBus_object.t -> unit -> unit Lwt.t;
     m_Disconnect : 'a OBus_object.t -> unit -> unit Lwt.t;
-    m_GetAppliedConnection : 'a OBus_object.t -> int32 -> ((string * (string * OBus_value.V.single) list) list * int64) Lwt.t;
-    m_Reapply : 'a OBus_object.t -> (string * (string * OBus_value.V.single) list) list * int64 * int32 -> unit Lwt.t;
+    m_GetAppliedConnection :
+      'a OBus_object.t ->
+      int32 ->
+      ((string * (string * OBus_value.V.single) list) list * int64) Lwt.t;
+    m_Reapply :
+      'a OBus_object.t ->
+      (string * (string * OBus_value.V.single) list) list * int64 * int32 ->
+      unit Lwt.t;
     p_ActiveConnection : 'a OBus_object.t -> OBus_path.t React.signal;
-    p_Autoconnect : ('a OBus_object.t -> bool React.signal) * ('a OBus_object.t -> bool -> unit Lwt.t);
+    p_Autoconnect :
+      ('a OBus_object.t -> bool React.signal)
+      * ('a OBus_object.t -> bool -> unit Lwt.t);
     p_AvailableConnections : 'a OBus_object.t -> OBus_path.t list React.signal;
     p_Capabilities : 'a OBus_object.t -> int32 React.signal;
     p_DeviceType : 'a OBus_object.t -> int32 React.signal;
@@ -252,8 +325,11 @@ struct
     p_Ip4Config : 'a OBus_object.t -> OBus_path.t React.signal;
     p_Ip6Config : 'a OBus_object.t -> OBus_path.t React.signal;
     p_IpInterface : 'a OBus_object.t -> string React.signal;
-    p_LldpNeighbors : 'a OBus_object.t -> (string * OBus_value.V.single) list list React.signal;
-    p_Managed : ('a OBus_object.t -> bool React.signal) * ('a OBus_object.t -> bool -> unit Lwt.t);
+    p_LldpNeighbors :
+      'a OBus_object.t -> (string * OBus_value.V.single) list list React.signal;
+    p_Managed :
+      ('a OBus_object.t -> bool React.signal)
+      * ('a OBus_object.t -> bool -> unit Lwt.t);
     p_Metered : 'a OBus_object.t -> int32 React.signal;
     p_Mtu : 'a OBus_object.t -> int32 React.signal;
     p_NmPluginMissing : 'a OBus_object.t -> bool React.signal;
@@ -263,22 +339,21 @@ struct
     p_StateReason : 'a OBus_object.t -> (int32 * int32) React.signal;
     p_Udi : 'a OBus_object.t -> string React.signal;
   }
+
   let make members =
-    OBus_object.make_interface_unsafe interface
-      [
-      ]
+    OBus_object.make_interface_unsafe interface []
       [|
         method_info m_Delete members.m_Delete;
         method_info m_Disconnect members.m_Disconnect;
         method_info m_GetAppliedConnection members.m_GetAppliedConnection;
         method_info m_Reapply members.m_Reapply;
       |]
-      [|
-        signal_info s_StateChanged;
-      |]
+      [| signal_info s_StateChanged |]
       [|
         property_r_info p_ActiveConnection members.p_ActiveConnection;
-        property_rw_info p_Autoconnect (fst members.p_Autoconnect) (snd members.p_Autoconnect);
+        property_rw_info p_Autoconnect
+          (fst members.p_Autoconnect)
+          (snd members.p_Autoconnect);
         property_r_info p_AvailableConnections members.p_AvailableConnections;
         property_r_info p_Capabilities members.p_Capabilities;
         property_r_info p_DeviceType members.p_DeviceType;
@@ -294,7 +369,8 @@ struct
         property_r_info p_Ip6Config members.p_Ip6Config;
         property_r_info p_IpInterface members.p_IpInterface;
         property_r_info p_LldpNeighbors members.p_LldpNeighbors;
-        property_rw_info p_Managed (fst members.p_Managed) (snd members.p_Managed);
+        property_rw_info p_Managed (fst members.p_Managed)
+          (snd members.p_Managed);
         property_r_info p_Metered members.p_Metered;
         property_r_info p_Mtu members.p_Mtu;
         property_r_info p_NmPluginMissing members.p_NmPluginMissing;
@@ -305,95 +381,103 @@ struct
         property_r_info p_Udi members.p_Udi;
       |]
 end
-module Org_freedesktop_NetworkManager_Device_Generic =
-struct
+
+module Org_freedesktop_NetworkManager_Device_Generic = struct
   let interface = "org.freedesktop.NetworkManager.Device.Generic"
-  let s_PropertiesChanged = {
-    Signal.interface = interface;
-    Signal.member = "PropertiesChanged";
-    Signal.args = (arg1
-                       (Some "properties", dict string variant));
-    Signal.annotations = [];
-  }
-  let p_HwAddress = {
-    Property.interface = interface;
-    Property.member = "HwAddress";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_TypeDescription = {
-    Property.interface = interface;
-    Property.member = "TypeDescription";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
+
+  let s_PropertiesChanged =
+    {
+      Signal.interface;
+      Signal.member = "PropertiesChanged";
+      Signal.args = arg1 (Some "properties", dict string variant);
+      Signal.annotations = [];
+    }
+
+  let p_HwAddress =
+    {
+      Property.interface;
+      Property.member = "HwAddress";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_TypeDescription =
+    {
+      Property.interface;
+      Property.member = "TypeDescription";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
   type 'a members = {
     p_HwAddress : 'a OBus_object.t -> string React.signal;
     p_TypeDescription : 'a OBus_object.t -> string React.signal;
   }
+
   let make members =
-    OBus_object.make_interface_unsafe interface
-      [
-      ]
-      [|
-      |]
-      [|
-        signal_info s_PropertiesChanged;
-      |]
+    OBus_object.make_interface_unsafe interface [] [||]
+      [| signal_info s_PropertiesChanged |]
       [|
         property_r_info p_HwAddress members.p_HwAddress;
         property_r_info p_TypeDescription members.p_TypeDescription;
       |]
 end
-module Org_freedesktop_NetworkManager_Device_Statistics =
-struct
+
+module Org_freedesktop_NetworkManager_Device_Statistics = struct
   let interface = "org.freedesktop.NetworkManager.Device.Statistics"
-  let s_PropertiesChanged = {
-    Signal.interface = interface;
-    Signal.member = "PropertiesChanged";
-    Signal.args = (arg1
-                       (Some "properties", dict string variant));
-    Signal.annotations = [];
-  }
-  let p_RefreshRateMs = {
-    Property.interface = interface;
-    Property.member = "RefreshRateMs";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable_writable;
-    Property.annotations = [];
-  }
-  let p_RxBytes = {
-    Property.interface = interface;
-    Property.member = "RxBytes";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_TxBytes = {
-    Property.interface = interface;
-    Property.member = "TxBytes";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
+
+  let s_PropertiesChanged =
+    {
+      Signal.interface;
+      Signal.member = "PropertiesChanged";
+      Signal.args = arg1 (Some "properties", dict string variant);
+      Signal.annotations = [];
+    }
+
+  let p_RefreshRateMs =
+    {
+      Property.interface;
+      Property.member = "RefreshRateMs";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable_writable;
+      Property.annotations = [];
+    }
+
+  let p_RxBytes =
+    {
+      Property.interface;
+      Property.member = "RxBytes";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_TxBytes =
+    {
+      Property.interface;
+      Property.member = "TxBytes";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
   type 'a members = {
-    p_RefreshRateMs : ('a OBus_object.t -> int32 React.signal) * ('a OBus_object.t -> int32 -> unit Lwt.t);
+    p_RefreshRateMs :
+      ('a OBus_object.t -> int32 React.signal)
+      * ('a OBus_object.t -> int32 -> unit Lwt.t);
     p_RxBytes : 'a OBus_object.t -> int64 React.signal;
     p_TxBytes : 'a OBus_object.t -> int64 React.signal;
   }
+
   let make members =
-    OBus_object.make_interface_unsafe interface
-      [
-      ]
+    OBus_object.make_interface_unsafe interface [] [||]
+      [| signal_info s_PropertiesChanged |]
       [|
-      |]
-      [|
-        signal_info s_PropertiesChanged;
-      |]
-      [|
-        property_rw_info p_RefreshRateMs (fst members.p_RefreshRateMs) (snd members.p_RefreshRateMs);
+        property_rw_info p_RefreshRateMs
+          (fst members.p_RefreshRateMs)
+          (snd members.p_RefreshRateMs);
         property_r_info p_RxBytes members.p_RxBytes;
         property_r_info p_TxBytes members.p_TxBytes;
       |]

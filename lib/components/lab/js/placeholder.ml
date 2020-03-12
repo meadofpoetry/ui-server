@@ -24,23 +24,27 @@ class t (elt : Dom_html.element Js.t) () =
       match Element.query_selector elt Selector.text with
       | None ->
           let text =
-            Tyxml_js.To_dom.of_element @@ D.placeholder_text ~loading ~text:(`Text s) ()
+            Tyxml_js.To_dom.of_element
+            @@ D.placeholder_text ~loading ~text:(`Text s) ()
           in
           Dom.appendChild super#root text
       | Some x ->
           x##.textContent := Js.some @@ Js.string s;
-          if loading
-          then Dom.appendChild x (Tyxml_js.To_dom.of_element @@ D.placeholder_dots ())
+          if loading then
+            Dom.appendChild x
+              (Tyxml_js.To_dom.of_element @@ D.placeholder_dots ())
   end
 
-let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
+let attach (elt : #Dom_html.element Js.t) : t =
+  new t (elt :> Dom_html.element Js.t) ()
 
 let make ?classes ?a ?error ?loading ?icon ?text () =
   D.placeholder ?classes ?a ?error ?loading ?icon ?text ()
   |> Tyxml_js.To_dom.of_element
   |> attach
 
-let make_progress ?classes ?a ?(text = `Text "Загрузка") ?size ?icon () =
+let make_progress ?classes ?a ?(text = `Text "Загрузка") ?size ?icon ()
+    =
   let icon =
     match icon with
     | None -> Circular_progress.D.circular_progress ?size ~indeterminate:true ()
@@ -51,8 +55,6 @@ let make_progress ?classes ?a ?(text = `Text "Загрузка") ?size ?icon () 
 
 let make_error ?classes ?a ?icon ?text () =
   let icon =
-    match icon with
-    | None -> Icon.D.SVG.icon ~d:error_svg_path ()
-    | Some x -> x
+    match icon with None -> Icon.D.SVG.icon ~d:error_svg_path () | Some x -> x
   in
   make ?classes ?a ~error:true ~icon ?text ()

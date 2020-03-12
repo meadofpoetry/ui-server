@@ -1,16 +1,9 @@
 type measure_typ =
-  [ `Black
-  | `Luma
-  | `Freeze
-  | `Diff
-  | `Blocky
-  | `Shortt
-  | `Moment
-  ]
+  [ `Black | `Luma | `Freeze | `Diff | `Blocky | `Shortt | `Moment ]
 [@@deriving yojson]
 
 let equal_measure_typ a b =
-  match a, b with
+  match (a, b) with
   | `Black, `Black -> true
   | `Luma, `Luma -> true
   | `Freeze, `Freeze -> true

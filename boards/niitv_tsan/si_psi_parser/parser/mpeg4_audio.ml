@@ -60,9 +60,7 @@ let parse bs off =
   match%bitstring bs with
   | {| mpeg_4_audio : 8 |} ->
       let parsed = audio_value_of_int mpeg_4_audio in
-      [ Node.make
-          ~parsed
-          ~offset:off
-          7
-          "MPEG-4_audio_profile_and_level"
-          (Hex (Int mpeg_4_audio)) ]
+      [
+        Node.make ~parsed ~offset:off 7 "MPEG-4_audio_profile_and_level"
+          (Hex (Int mpeg_4_audio));
+      ]

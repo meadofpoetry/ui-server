@@ -1,8 +1,6 @@
 (library
-  (name       board_niitv_tsan_page_services)
-  (libraries  components_lab
-              ui_templates
-              board_niitv_tsan_http_js
-              board_niitv_tsan_widgets
-              board_niitv_tsan_page_services_tyxml)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name board_niitv_tsan_page_services)
+ (libraries components_lab ui_templates board_niitv_tsan_http_js
+   board_niitv_tsan_widgets board_niitv_tsan_page_services_tyxml)
+ (preprocess
+  (pps js_of_ocaml-ppx)))

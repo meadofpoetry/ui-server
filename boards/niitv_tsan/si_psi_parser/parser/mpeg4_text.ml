@@ -63,10 +63,11 @@ let parse bs off =
      |}
     ->
       (*   let specific = decode_specific_text_config specific (off + off_2) in*)
-      [ Node.make ~offset:off 8 "text_format" (String (parse_text_format text_format))
-      ; Node.make ~offset:(off + off_1) 16 "text_config_length" (Dec (Uint length))
-      ; Node.make
-          ~offset:(off + off_2)
-          (length * 8)
-          "format_specific_text_config"
-          (List []) ]
+      [
+        Node.make ~offset:off 8 "text_format"
+          (String (parse_text_format text_format));
+        Node.make ~offset:(off + off_1) 16 "text_config_length"
+          (Dec (Uint length));
+        Node.make ~offset:(off + off_2) (length * 8)
+          "format_specific_text_config" (List []);
+      ]

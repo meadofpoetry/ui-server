@@ -3,914 +3,1044 @@ open OBus_value
 open OBus_value.C
 open OBus_member
 open OBus_object
-module Org_freedesktop_DBus_Introspectable =
-struct
+
+module Org_freedesktop_DBus_Introspectable = struct
   let interface = "org.freedesktop.DBus.Introspectable"
-  let m_Introspect = {
-    Method.interface = interface;
-    Method.member = "Introspect";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (Some "data", basic_string));
-    Method.annotations = [];
-  }
-  type 'a members = {
-    m_Introspect : 'a OBus_object.t -> unit -> string Lwt.t;
-  }
+
+  let m_Introspect =
+    {
+      Method.interface;
+      Method.member = "Introspect";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (Some "data", basic_string);
+      Method.annotations = [];
+    }
+
+  type 'a members = { m_Introspect : 'a OBus_object.t -> unit -> string Lwt.t }
+
   let make members =
-    OBus_object.make_interface_unsafe interface
-      [
-      ]
-      [|
-        method_info m_Introspect members.m_Introspect;
-      |]
-      [|
-      |]
-      [|
-      |]
+    OBus_object.make_interface_unsafe interface []
+      [| method_info m_Introspect members.m_Introspect |]
+      [||] [||]
 end
-module Org_freedesktop_DBus_Peer =
-struct
+
+module Org_freedesktop_DBus_Peer = struct
   let interface = "org.freedesktop.DBus.Peer"
-  let m_GetMachineId = {
-    Method.interface = interface;
-    Method.member = "GetMachineId";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (Some "machine_uuid", basic_string));
-    Method.annotations = [];
-  }
-  let m_Ping = {
-    Method.interface = interface;
-    Method.member = "Ping";
-    Method.i_args = (arg0);
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
+
+  let m_GetMachineId =
+    {
+      Method.interface;
+      Method.member = "GetMachineId";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (Some "machine_uuid", basic_string);
+      Method.annotations = [];
+    }
+
+  let m_Ping =
+    {
+      Method.interface;
+      Method.member = "Ping";
+      Method.i_args = arg0;
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
   type 'a members = {
     m_GetMachineId : 'a OBus_object.t -> unit -> string Lwt.t;
     m_Ping : 'a OBus_object.t -> unit -> unit Lwt.t;
   }
+
   let make members =
-    OBus_object.make_interface_unsafe interface
-      [
-      ]
+    OBus_object.make_interface_unsafe interface []
       [|
         method_info m_GetMachineId members.m_GetMachineId;
         method_info m_Ping members.m_Ping;
       |]
-      [|
-      |]
-      [|
-      |]
+      [||] [||]
 end
-module Org_freedesktop_DBus_Properties =
-struct
+
+module Org_freedesktop_DBus_Properties = struct
   let interface = "org.freedesktop.DBus.Properties"
-  let m_Get = {
-    Method.interface = interface;
-    Method.member = "Get";
-    Method.i_args = (arg2
-                       (Some "interface", basic_string)
-                       (Some "property", basic_string));
-    Method.o_args = (arg1
-                       (Some "value", variant));
-    Method.annotations = [];
-  }
-  let m_GetAll = {
-    Method.interface = interface;
-    Method.member = "GetAll";
-    Method.i_args = (arg1
-                       (Some "interface", basic_string));
-    Method.o_args = (arg1
-                       (Some "properties", dict string variant));
-    Method.annotations = [];
-  }
-  let m_Set = {
-    Method.interface = interface;
-    Method.member = "Set";
-    Method.i_args = (arg3
-                       (Some "interface", basic_string)
-                       (Some "property", basic_string)
-                       (Some "value", variant));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let s_PropertiesChanged = {
-    Signal.interface = interface;
-    Signal.member = "PropertiesChanged";
-    Signal.args = (arg3
-                       (Some "interface", basic_string)
-                       (Some "changed_properties", dict string variant)
-                       (Some "invalidated_properties", array basic_string));
-    Signal.annotations = [];
-  }
+
+  let m_Get =
+    {
+      Method.interface;
+      Method.member = "Get";
+      Method.i_args =
+        arg2 (Some "interface", basic_string) (Some "property", basic_string);
+      Method.o_args = arg1 (Some "value", variant);
+      Method.annotations = [];
+    }
+
+  let m_GetAll =
+    {
+      Method.interface;
+      Method.member = "GetAll";
+      Method.i_args = arg1 (Some "interface", basic_string);
+      Method.o_args = arg1 (Some "properties", dict string variant);
+      Method.annotations = [];
+    }
+
+  let m_Set =
+    {
+      Method.interface;
+      Method.member = "Set";
+      Method.i_args =
+        arg3
+          (Some "interface", basic_string)
+          (Some "property", basic_string)
+          (Some "value", variant);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let s_PropertiesChanged =
+    {
+      Signal.interface;
+      Signal.member = "PropertiesChanged";
+      Signal.args =
+        arg3
+          (Some "interface", basic_string)
+          (Some "changed_properties", dict string variant)
+          (Some "invalidated_properties", array basic_string);
+      Signal.annotations = [];
+    }
+
   type 'a members = {
     m_Get : 'a OBus_object.t -> string * string -> OBus_value.V.single Lwt.t;
-    m_GetAll : 'a OBus_object.t -> string -> (string * OBus_value.V.single) list Lwt.t;
-    m_Set : 'a OBus_object.t -> string * string * OBus_value.V.single -> unit Lwt.t;
+    m_GetAll :
+      'a OBus_object.t -> string -> (string * OBus_value.V.single) list Lwt.t;
+    m_Set :
+      'a OBus_object.t -> string * string * OBus_value.V.single -> unit Lwt.t;
   }
+
   let make members =
-    OBus_object.make_interface_unsafe interface
-      [
-      ]
+    OBus_object.make_interface_unsafe interface []
       [|
         method_info m_Get members.m_Get;
         method_info m_GetAll members.m_GetAll;
         method_info m_Set members.m_Set;
       |]
-      [|
-        signal_info s_PropertiesChanged;
-      |]
-      [|
-      |]
+      [| signal_info s_PropertiesChanged |]
+      [||]
 end
-module Org_freedesktop_login1_Manager =
-struct
+
+module Org_freedesktop_login1_Manager = struct
   let interface = "org.freedesktop.login1.Manager"
-  let m_ActivateSession = {
-    Method.interface = interface;
-    Method.member = "ActivateSession";
-    Method.i_args = (arg1
-                       (None, basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_ActivateSessionOnSeat = {
-    Method.interface = interface;
-    Method.member = "ActivateSessionOnSeat";
-    Method.i_args = (arg2
-                       (None, basic_string)
-                       (None, basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_AttachDevice = {
-    Method.interface = interface;
-    Method.member = "AttachDevice";
-    Method.i_args = (arg3
-                       (None, basic_string)
-                       (None, basic_string)
-                       (None, basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_CanHalt = {
-    Method.interface = interface;
-    Method.member = "CanHalt";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, basic_string));
-    Method.annotations = [];
-  }
-  let m_CanHibernate = {
-    Method.interface = interface;
-    Method.member = "CanHibernate";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, basic_string));
-    Method.annotations = [];
-  }
-  let m_CanHybridSleep = {
-    Method.interface = interface;
-    Method.member = "CanHybridSleep";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, basic_string));
-    Method.annotations = [];
-  }
-  let m_CanPowerOff = {
-    Method.interface = interface;
-    Method.member = "CanPowerOff";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, basic_string));
-    Method.annotations = [];
-  }
-  let m_CanReboot = {
-    Method.interface = interface;
-    Method.member = "CanReboot";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, basic_string));
-    Method.annotations = [];
-  }
-  let m_CanRebootParameter = {
-    Method.interface = interface;
-    Method.member = "CanRebootParameter";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, basic_string));
-    Method.annotations = [];
-  }
-  let m_CanRebootToBootLoaderEntry = {
-    Method.interface = interface;
-    Method.member = "CanRebootToBootLoaderEntry";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, basic_string));
-    Method.annotations = [];
-  }
-  let m_CanRebootToBootLoaderMenu = {
-    Method.interface = interface;
-    Method.member = "CanRebootToBootLoaderMenu";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, basic_string));
-    Method.annotations = [];
-  }
-  let m_CanRebootToFirmwareSetup = {
-    Method.interface = interface;
-    Method.member = "CanRebootToFirmwareSetup";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, basic_string));
-    Method.annotations = [];
-  }
-  let m_CanSuspend = {
-    Method.interface = interface;
-    Method.member = "CanSuspend";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, basic_string));
-    Method.annotations = [];
-  }
-  let m_CanSuspendThenHibernate = {
-    Method.interface = interface;
-    Method.member = "CanSuspendThenHibernate";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, basic_string));
-    Method.annotations = [];
-  }
-  let m_CancelScheduledShutdown = {
-    Method.interface = interface;
-    Method.member = "CancelScheduledShutdown";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, basic_boolean));
-    Method.annotations = [];
-  }
-  let m_CreateSession = {
-    Method.interface = interface;
-    Method.member = "CreateSession";
-    Method.i_args = (arg14
-                       (None, basic_uint32)
-                       (None, basic_uint32)
-                       (None, basic_string)
-                       (None, basic_string)
-                       (None, basic_string)
-                       (None, basic_string)
-                       (None, basic_string)
-                       (None, basic_uint32)
-                       (None, basic_string)
-                       (None, basic_string)
-                       (None, basic_boolean)
-                       (None, basic_string)
-                       (None, basic_string)
-                       (None, array (structure (seq2 basic_string variant))));
-    Method.o_args = (arg8
-                       (None, basic_string)
-                       (None, basic_object_path)
-                       (None, basic_string)
-                       (None, basic_unix_fd)
-                       (None, basic_uint32)
-                       (None, basic_string)
-                       (None, basic_uint32)
-                       (None, basic_boolean));
-    Method.annotations = [("org.freedesktop.systemd1.Privileged", "true")];
-  }
-  let m_FlushDevices = {
-    Method.interface = interface;
-    Method.member = "FlushDevices";
-    Method.i_args = (arg1
-                       (None, basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_GetSeat = {
-    Method.interface = interface;
-    Method.member = "GetSeat";
-    Method.i_args = (arg1
-                       (None, basic_string));
-    Method.o_args = (arg1
-                       (None, basic_object_path));
-    Method.annotations = [];
-  }
-  let m_GetSession = {
-    Method.interface = interface;
-    Method.member = "GetSession";
-    Method.i_args = (arg1
-                       (None, basic_string));
-    Method.o_args = (arg1
-                       (None, basic_object_path));
-    Method.annotations = [];
-  }
-  let m_GetSessionByPID = {
-    Method.interface = interface;
-    Method.member = "GetSessionByPID";
-    Method.i_args = (arg1
-                       (None, basic_uint32));
-    Method.o_args = (arg1
-                       (None, basic_object_path));
-    Method.annotations = [];
-  }
-  let m_GetUser = {
-    Method.interface = interface;
-    Method.member = "GetUser";
-    Method.i_args = (arg1
-                       (None, basic_uint32));
-    Method.o_args = (arg1
-                       (None, basic_object_path));
-    Method.annotations = [];
-  }
-  let m_GetUserByPID = {
-    Method.interface = interface;
-    Method.member = "GetUserByPID";
-    Method.i_args = (arg1
-                       (None, basic_uint32));
-    Method.o_args = (arg1
-                       (None, basic_object_path));
-    Method.annotations = [];
-  }
-  let m_Halt = {
-    Method.interface = interface;
-    Method.member = "Halt";
-    Method.i_args = (arg1
-                       (None, basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_Hibernate = {
-    Method.interface = interface;
-    Method.member = "Hibernate";
-    Method.i_args = (arg1
-                       (None, basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_HybridSleep = {
-    Method.interface = interface;
-    Method.member = "HybridSleep";
-    Method.i_args = (arg1
-                       (None, basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_Inhibit = {
-    Method.interface = interface;
-    Method.member = "Inhibit";
-    Method.i_args = (arg4
-                       (None, basic_string)
-                       (None, basic_string)
-                       (None, basic_string)
-                       (None, basic_string));
-    Method.o_args = (arg1
-                       (None, basic_unix_fd));
-    Method.annotations = [];
-  }
-  let m_KillSession = {
-    Method.interface = interface;
-    Method.member = "KillSession";
-    Method.i_args = (arg3
-                       (None, basic_string)
-                       (None, basic_string)
-                       (None, basic_int32));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_KillUser = {
-    Method.interface = interface;
-    Method.member = "KillUser";
-    Method.i_args = (arg2
-                       (None, basic_uint32)
-                       (None, basic_int32));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_ListInhibitors = {
-    Method.interface = interface;
-    Method.member = "ListInhibitors";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, array (structure (seq6 basic_string basic_string basic_string basic_string basic_uint32 basic_uint32))));
-    Method.annotations = [];
-  }
-  let m_ListSeats = {
-    Method.interface = interface;
-    Method.member = "ListSeats";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, array (structure (seq2 basic_string basic_object_path))));
-    Method.annotations = [];
-  }
-  let m_ListSessions = {
-    Method.interface = interface;
-    Method.member = "ListSessions";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, array (structure (seq5 basic_string basic_uint32 basic_string basic_string basic_object_path))));
-    Method.annotations = [];
-  }
-  let m_ListUsers = {
-    Method.interface = interface;
-    Method.member = "ListUsers";
-    Method.i_args = (arg0);
-    Method.o_args = (arg1
-                       (None, array (structure (seq3 basic_uint32 basic_string basic_object_path))));
-    Method.annotations = [];
-  }
-  let m_LockSession = {
-    Method.interface = interface;
-    Method.member = "LockSession";
-    Method.i_args = (arg1
-                       (None, basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_LockSessions = {
-    Method.interface = interface;
-    Method.member = "LockSessions";
-    Method.i_args = (arg0);
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_PowerOff = {
-    Method.interface = interface;
-    Method.member = "PowerOff";
-    Method.i_args = (arg1
-                       (None, basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_Reboot = {
-    Method.interface = interface;
-    Method.member = "Reboot";
-    Method.i_args = (arg1
-                       (None, basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_ReleaseSession = {
-    Method.interface = interface;
-    Method.member = "ReleaseSession";
-    Method.i_args = (arg1
-                       (None, basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [("org.freedesktop.systemd1.Privileged", "true")];
-  }
-  let m_ScheduleShutdown = {
-    Method.interface = interface;
-    Method.member = "ScheduleShutdown";
-    Method.i_args = (arg2
-                       (None, basic_string)
-                       (None, basic_uint64));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_SetRebootParameter = {
-    Method.interface = interface;
-    Method.member = "SetRebootParameter";
-    Method.i_args = (arg1
-                       (None, basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_SetRebootToBootLoaderEntry = {
-    Method.interface = interface;
-    Method.member = "SetRebootToBootLoaderEntry";
-    Method.i_args = (arg1
-                       (None, basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_SetRebootToBootLoaderMenu = {
-    Method.interface = interface;
-    Method.member = "SetRebootToBootLoaderMenu";
-    Method.i_args = (arg1
-                       (None, basic_uint64));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_SetRebootToFirmwareSetup = {
-    Method.interface = interface;
-    Method.member = "SetRebootToFirmwareSetup";
-    Method.i_args = (arg1
-                       (None, basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_SetUserLinger = {
-    Method.interface = interface;
-    Method.member = "SetUserLinger";
-    Method.i_args = (arg3
-                       (None, basic_uint32)
-                       (None, basic_boolean)
-                       (None, basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_SetWallMessage = {
-    Method.interface = interface;
-    Method.member = "SetWallMessage";
-    Method.i_args = (arg2
-                       (None, basic_string)
-                       (None, basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_Suspend = {
-    Method.interface = interface;
-    Method.member = "Suspend";
-    Method.i_args = (arg1
-                       (None, basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_SuspendThenHibernate = {
-    Method.interface = interface;
-    Method.member = "SuspendThenHibernate";
-    Method.i_args = (arg1
-                       (None, basic_boolean));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_TerminateSeat = {
-    Method.interface = interface;
-    Method.member = "TerminateSeat";
-    Method.i_args = (arg1
-                       (None, basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_TerminateSession = {
-    Method.interface = interface;
-    Method.member = "TerminateSession";
-    Method.i_args = (arg1
-                       (None, basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_TerminateUser = {
-    Method.interface = interface;
-    Method.member = "TerminateUser";
-    Method.i_args = (arg1
-                       (None, basic_uint32));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_UnlockSession = {
-    Method.interface = interface;
-    Method.member = "UnlockSession";
-    Method.i_args = (arg1
-                       (None, basic_string));
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let m_UnlockSessions = {
-    Method.interface = interface;
-    Method.member = "UnlockSessions";
-    Method.i_args = (arg0);
-    Method.o_args = (arg0);
-    Method.annotations = [];
-  }
-  let s_PrepareForShutdown = {
-    Signal.interface = interface;
-    Signal.member = "PrepareForShutdown";
-    Signal.args = (arg1
-                       (None, basic_boolean));
-    Signal.annotations = [];
-  }
-  let s_PrepareForSleep = {
-    Signal.interface = interface;
-    Signal.member = "PrepareForSleep";
-    Signal.args = (arg1
-                       (None, basic_boolean));
-    Signal.annotations = [];
-  }
-  let s_SeatNew = {
-    Signal.interface = interface;
-    Signal.member = "SeatNew";
-    Signal.args = (arg2
-                       (None, basic_string)
-                       (None, basic_object_path));
-    Signal.annotations = [];
-  }
-  let s_SeatRemoved = {
-    Signal.interface = interface;
-    Signal.member = "SeatRemoved";
-    Signal.args = (arg2
-                       (None, basic_string)
-                       (None, basic_object_path));
-    Signal.annotations = [];
-  }
-  let s_SessionNew = {
-    Signal.interface = interface;
-    Signal.member = "SessionNew";
-    Signal.args = (arg2
-                       (None, basic_string)
-                       (None, basic_object_path));
-    Signal.annotations = [];
-  }
-  let s_SessionRemoved = {
-    Signal.interface = interface;
-    Signal.member = "SessionRemoved";
-    Signal.args = (arg2
-                       (None, basic_string)
-                       (None, basic_object_path));
-    Signal.annotations = [];
-  }
-  let s_UserNew = {
-    Signal.interface = interface;
-    Signal.member = "UserNew";
-    Signal.args = (arg2
-                       (None, basic_uint32)
-                       (None, basic_object_path));
-    Signal.annotations = [];
-  }
-  let s_UserRemoved = {
-    Signal.interface = interface;
-    Signal.member = "UserRemoved";
-    Signal.args = (arg2
-                       (None, basic_uint32)
-                       (None, basic_object_path));
-    Signal.annotations = [];
-  }
-  let p_BlockInhibited = {
-    Property.interface = interface;
-    Property.member = "BlockInhibited";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_BootLoaderEntries = {
-    Property.interface = interface;
-    Property.member = "BootLoaderEntries";
-    Property.typ = array basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_DelayInhibited = {
-    Property.interface = interface;
-    Property.member = "DelayInhibited";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_Docked = {
-    Property.interface = interface;
-    Property.member = "Docked";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_EnableWallMessages = {
-    Property.interface = interface;
-    Property.member = "EnableWallMessages";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable_writable;
-    Property.annotations = [("org.freedesktop.systemd1.Privileged", "true");
-                          (OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_HandleHibernateKey = {
-    Property.interface = interface;
-    Property.member = "HandleHibernateKey";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_HandleLidSwitch = {
-    Property.interface = interface;
-    Property.member = "HandleLidSwitch";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_HandleLidSwitchDocked = {
-    Property.interface = interface;
-    Property.member = "HandleLidSwitchDocked";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_HandleLidSwitchExternalPower = {
-    Property.interface = interface;
-    Property.member = "HandleLidSwitchExternalPower";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_HandlePowerKey = {
-    Property.interface = interface;
-    Property.member = "HandlePowerKey";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_HandleSuspendKey = {
-    Property.interface = interface;
-    Property.member = "HandleSuspendKey";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_HoldoffTimeoutUSec = {
-    Property.interface = interface;
-    Property.member = "HoldoffTimeoutUSec";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_IdleAction = {
-    Property.interface = interface;
-    Property.member = "IdleAction";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_IdleActionUSec = {
-    Property.interface = interface;
-    Property.member = "IdleActionUSec";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_IdleHint = {
-    Property.interface = interface;
-    Property.member = "IdleHint";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_IdleSinceHint = {
-    Property.interface = interface;
-    Property.member = "IdleSinceHint";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_IdleSinceHintMonotonic = {
-    Property.interface = interface;
-    Property.member = "IdleSinceHintMonotonic";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_InhibitDelayMaxUSec = {
-    Property.interface = interface;
-    Property.member = "InhibitDelayMaxUSec";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_InhibitorsMax = {
-    Property.interface = interface;
-    Property.member = "InhibitorsMax";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_KillExcludeUsers = {
-    Property.interface = interface;
-    Property.member = "KillExcludeUsers";
-    Property.typ = array basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_KillOnlyUsers = {
-    Property.interface = interface;
-    Property.member = "KillOnlyUsers";
-    Property.typ = array basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_KillUserProcesses = {
-    Property.interface = interface;
-    Property.member = "KillUserProcesses";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_LidClosed = {
-    Property.interface = interface;
-    Property.member = "LidClosed";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_NAutoVTs = {
-    Property.interface = interface;
-    Property.member = "NAutoVTs";
-    Property.typ = basic_uint32;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_NCurrentInhibitors = {
-    Property.interface = interface;
-    Property.member = "NCurrentInhibitors";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_NCurrentSessions = {
-    Property.interface = interface;
-    Property.member = "NCurrentSessions";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_OnExternalPower = {
-    Property.interface = interface;
-    Property.member = "OnExternalPower";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_PreparingForShutdown = {
-    Property.interface = interface;
-    Property.member = "PreparingForShutdown";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_PreparingForSleep = {
-    Property.interface = interface;
-    Property.member = "PreparingForSleep";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_RebootParameter = {
-    Property.interface = interface;
-    Property.member = "RebootParameter";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_RebootToBootLoaderEntry = {
-    Property.interface = interface;
-    Property.member = "RebootToBootLoaderEntry";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_RebootToBootLoaderMenu = {
-    Property.interface = interface;
-    Property.member = "RebootToBootLoaderMenu";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_RebootToFirmwareSetup = {
-    Property.interface = interface;
-    Property.member = "RebootToFirmwareSetup";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_RemoveIPC = {
-    Property.interface = interface;
-    Property.member = "RemoveIPC";
-    Property.typ = basic_boolean;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_RuntimeDirectorySize = {
-    Property.interface = interface;
-    Property.member = "RuntimeDirectorySize";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_ScheduledShutdown = {
-    Property.interface = interface;
-    Property.member = "ScheduledShutdown";
-    Property.typ = structure (seq2 basic_string basic_uint64);
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_SessionsMax = {
-    Property.interface = interface;
-    Property.member = "SessionsMax";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_UserStopDelayUSec = {
-    Property.interface = interface;
-    Property.member = "UserStopDelayUSec";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_WallMessage = {
-    Property.interface = interface;
-    Property.member = "WallMessage";
-    Property.typ = basic_string;
-    Property.access = Property.readable_writable;
-    Property.annotations = [("org.freedesktop.systemd1.Privileged", "true");
-                          (OBus_introspect.emits_changed_signal, "false")];
-  }
+
+  let m_ActivateSession =
+    {
+      Method.interface;
+      Method.member = "ActivateSession";
+      Method.i_args = arg1 (None, basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_ActivateSessionOnSeat =
+    {
+      Method.interface;
+      Method.member = "ActivateSessionOnSeat";
+      Method.i_args = arg2 (None, basic_string) (None, basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_AttachDevice =
+    {
+      Method.interface;
+      Method.member = "AttachDevice";
+      Method.i_args =
+        arg3 (None, basic_string) (None, basic_string) (None, basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_CanHalt =
+    {
+      Method.interface;
+      Method.member = "CanHalt";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (None, basic_string);
+      Method.annotations = [];
+    }
+
+  let m_CanHibernate =
+    {
+      Method.interface;
+      Method.member = "CanHibernate";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (None, basic_string);
+      Method.annotations = [];
+    }
+
+  let m_CanHybridSleep =
+    {
+      Method.interface;
+      Method.member = "CanHybridSleep";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (None, basic_string);
+      Method.annotations = [];
+    }
+
+  let m_CanPowerOff =
+    {
+      Method.interface;
+      Method.member = "CanPowerOff";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (None, basic_string);
+      Method.annotations = [];
+    }
+
+  let m_CanReboot =
+    {
+      Method.interface;
+      Method.member = "CanReboot";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (None, basic_string);
+      Method.annotations = [];
+    }
+
+  let m_CanRebootParameter =
+    {
+      Method.interface;
+      Method.member = "CanRebootParameter";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (None, basic_string);
+      Method.annotations = [];
+    }
+
+  let m_CanRebootToBootLoaderEntry =
+    {
+      Method.interface;
+      Method.member = "CanRebootToBootLoaderEntry";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (None, basic_string);
+      Method.annotations = [];
+    }
+
+  let m_CanRebootToBootLoaderMenu =
+    {
+      Method.interface;
+      Method.member = "CanRebootToBootLoaderMenu";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (None, basic_string);
+      Method.annotations = [];
+    }
+
+  let m_CanRebootToFirmwareSetup =
+    {
+      Method.interface;
+      Method.member = "CanRebootToFirmwareSetup";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (None, basic_string);
+      Method.annotations = [];
+    }
+
+  let m_CanSuspend =
+    {
+      Method.interface;
+      Method.member = "CanSuspend";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (None, basic_string);
+      Method.annotations = [];
+    }
+
+  let m_CanSuspendThenHibernate =
+    {
+      Method.interface;
+      Method.member = "CanSuspendThenHibernate";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (None, basic_string);
+      Method.annotations = [];
+    }
+
+  let m_CancelScheduledShutdown =
+    {
+      Method.interface;
+      Method.member = "CancelScheduledShutdown";
+      Method.i_args = arg0;
+      Method.o_args = arg1 (None, basic_boolean);
+      Method.annotations = [];
+    }
+
+  let m_CreateSession =
+    {
+      Method.interface;
+      Method.member = "CreateSession";
+      Method.i_args =
+        arg14 (None, basic_uint32) (None, basic_uint32) (None, basic_string)
+          (None, basic_string) (None, basic_string) (None, basic_string)
+          (None, basic_string) (None, basic_uint32) (None, basic_string)
+          (None, basic_string) (None, basic_boolean) (None, basic_string)
+          (None, basic_string)
+          (None, array (structure (seq2 basic_string variant)));
+      Method.o_args =
+        arg8 (None, basic_string) (None, basic_object_path) (None, basic_string)
+          (None, basic_unix_fd) (None, basic_uint32) (None, basic_string)
+          (None, basic_uint32) (None, basic_boolean);
+      Method.annotations = [ ("org.freedesktop.systemd1.Privileged", "true") ];
+    }
+
+  let m_FlushDevices =
+    {
+      Method.interface;
+      Method.member = "FlushDevices";
+      Method.i_args = arg1 (None, basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_GetSeat =
+    {
+      Method.interface;
+      Method.member = "GetSeat";
+      Method.i_args = arg1 (None, basic_string);
+      Method.o_args = arg1 (None, basic_object_path);
+      Method.annotations = [];
+    }
+
+  let m_GetSession =
+    {
+      Method.interface;
+      Method.member = "GetSession";
+      Method.i_args = arg1 (None, basic_string);
+      Method.o_args = arg1 (None, basic_object_path);
+      Method.annotations = [];
+    }
+
+  let m_GetSessionByPID =
+    {
+      Method.interface;
+      Method.member = "GetSessionByPID";
+      Method.i_args = arg1 (None, basic_uint32);
+      Method.o_args = arg1 (None, basic_object_path);
+      Method.annotations = [];
+    }
+
+  let m_GetUser =
+    {
+      Method.interface;
+      Method.member = "GetUser";
+      Method.i_args = arg1 (None, basic_uint32);
+      Method.o_args = arg1 (None, basic_object_path);
+      Method.annotations = [];
+    }
+
+  let m_GetUserByPID =
+    {
+      Method.interface;
+      Method.member = "GetUserByPID";
+      Method.i_args = arg1 (None, basic_uint32);
+      Method.o_args = arg1 (None, basic_object_path);
+      Method.annotations = [];
+    }
+
+  let m_Halt =
+    {
+      Method.interface;
+      Method.member = "Halt";
+      Method.i_args = arg1 (None, basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_Hibernate =
+    {
+      Method.interface;
+      Method.member = "Hibernate";
+      Method.i_args = arg1 (None, basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_HybridSleep =
+    {
+      Method.interface;
+      Method.member = "HybridSleep";
+      Method.i_args = arg1 (None, basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_Inhibit =
+    {
+      Method.interface;
+      Method.member = "Inhibit";
+      Method.i_args =
+        arg4 (None, basic_string) (None, basic_string) (None, basic_string)
+          (None, basic_string);
+      Method.o_args = arg1 (None, basic_unix_fd);
+      Method.annotations = [];
+    }
+
+  let m_KillSession =
+    {
+      Method.interface;
+      Method.member = "KillSession";
+      Method.i_args =
+        arg3 (None, basic_string) (None, basic_string) (None, basic_int32);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_KillUser =
+    {
+      Method.interface;
+      Method.member = "KillUser";
+      Method.i_args = arg2 (None, basic_uint32) (None, basic_int32);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_ListInhibitors =
+    {
+      Method.interface;
+      Method.member = "ListInhibitors";
+      Method.i_args = arg0;
+      Method.o_args =
+        arg1
+          ( None,
+            array
+              (structure
+                 (seq6 basic_string basic_string basic_string basic_string
+                    basic_uint32 basic_uint32)) );
+      Method.annotations = [];
+    }
+
+  let m_ListSeats =
+    {
+      Method.interface;
+      Method.member = "ListSeats";
+      Method.i_args = arg0;
+      Method.o_args =
+        arg1 (None, array (structure (seq2 basic_string basic_object_path)));
+      Method.annotations = [];
+    }
+
+  let m_ListSessions =
+    {
+      Method.interface;
+      Method.member = "ListSessions";
+      Method.i_args = arg0;
+      Method.o_args =
+        arg1
+          ( None,
+            array
+              (structure
+                 (seq5 basic_string basic_uint32 basic_string basic_string
+                    basic_object_path)) );
+      Method.annotations = [];
+    }
+
+  let m_ListUsers =
+    {
+      Method.interface;
+      Method.member = "ListUsers";
+      Method.i_args = arg0;
+      Method.o_args =
+        arg1
+          ( None,
+            array (structure (seq3 basic_uint32 basic_string basic_object_path))
+          );
+      Method.annotations = [];
+    }
+
+  let m_LockSession =
+    {
+      Method.interface;
+      Method.member = "LockSession";
+      Method.i_args = arg1 (None, basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_LockSessions =
+    {
+      Method.interface;
+      Method.member = "LockSessions";
+      Method.i_args = arg0;
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_PowerOff =
+    {
+      Method.interface;
+      Method.member = "PowerOff";
+      Method.i_args = arg1 (None, basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_Reboot =
+    {
+      Method.interface;
+      Method.member = "Reboot";
+      Method.i_args = arg1 (None, basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_ReleaseSession =
+    {
+      Method.interface;
+      Method.member = "ReleaseSession";
+      Method.i_args = arg1 (None, basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [ ("org.freedesktop.systemd1.Privileged", "true") ];
+    }
+
+  let m_ScheduleShutdown =
+    {
+      Method.interface;
+      Method.member = "ScheduleShutdown";
+      Method.i_args = arg2 (None, basic_string) (None, basic_uint64);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_SetRebootParameter =
+    {
+      Method.interface;
+      Method.member = "SetRebootParameter";
+      Method.i_args = arg1 (None, basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_SetRebootToBootLoaderEntry =
+    {
+      Method.interface;
+      Method.member = "SetRebootToBootLoaderEntry";
+      Method.i_args = arg1 (None, basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_SetRebootToBootLoaderMenu =
+    {
+      Method.interface;
+      Method.member = "SetRebootToBootLoaderMenu";
+      Method.i_args = arg1 (None, basic_uint64);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_SetRebootToFirmwareSetup =
+    {
+      Method.interface;
+      Method.member = "SetRebootToFirmwareSetup";
+      Method.i_args = arg1 (None, basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_SetUserLinger =
+    {
+      Method.interface;
+      Method.member = "SetUserLinger";
+      Method.i_args =
+        arg3 (None, basic_uint32) (None, basic_boolean) (None, basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_SetWallMessage =
+    {
+      Method.interface;
+      Method.member = "SetWallMessage";
+      Method.i_args = arg2 (None, basic_string) (None, basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_Suspend =
+    {
+      Method.interface;
+      Method.member = "Suspend";
+      Method.i_args = arg1 (None, basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_SuspendThenHibernate =
+    {
+      Method.interface;
+      Method.member = "SuspendThenHibernate";
+      Method.i_args = arg1 (None, basic_boolean);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_TerminateSeat =
+    {
+      Method.interface;
+      Method.member = "TerminateSeat";
+      Method.i_args = arg1 (None, basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_TerminateSession =
+    {
+      Method.interface;
+      Method.member = "TerminateSession";
+      Method.i_args = arg1 (None, basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_TerminateUser =
+    {
+      Method.interface;
+      Method.member = "TerminateUser";
+      Method.i_args = arg1 (None, basic_uint32);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_UnlockSession =
+    {
+      Method.interface;
+      Method.member = "UnlockSession";
+      Method.i_args = arg1 (None, basic_string);
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let m_UnlockSessions =
+    {
+      Method.interface;
+      Method.member = "UnlockSessions";
+      Method.i_args = arg0;
+      Method.o_args = arg0;
+      Method.annotations = [];
+    }
+
+  let s_PrepareForShutdown =
+    {
+      Signal.interface;
+      Signal.member = "PrepareForShutdown";
+      Signal.args = arg1 (None, basic_boolean);
+      Signal.annotations = [];
+    }
+
+  let s_PrepareForSleep =
+    {
+      Signal.interface;
+      Signal.member = "PrepareForSleep";
+      Signal.args = arg1 (None, basic_boolean);
+      Signal.annotations = [];
+    }
+
+  let s_SeatNew =
+    {
+      Signal.interface;
+      Signal.member = "SeatNew";
+      Signal.args = arg2 (None, basic_string) (None, basic_object_path);
+      Signal.annotations = [];
+    }
+
+  let s_SeatRemoved =
+    {
+      Signal.interface;
+      Signal.member = "SeatRemoved";
+      Signal.args = arg2 (None, basic_string) (None, basic_object_path);
+      Signal.annotations = [];
+    }
+
+  let s_SessionNew =
+    {
+      Signal.interface;
+      Signal.member = "SessionNew";
+      Signal.args = arg2 (None, basic_string) (None, basic_object_path);
+      Signal.annotations = [];
+    }
+
+  let s_SessionRemoved =
+    {
+      Signal.interface;
+      Signal.member = "SessionRemoved";
+      Signal.args = arg2 (None, basic_string) (None, basic_object_path);
+      Signal.annotations = [];
+    }
+
+  let s_UserNew =
+    {
+      Signal.interface;
+      Signal.member = "UserNew";
+      Signal.args = arg2 (None, basic_uint32) (None, basic_object_path);
+      Signal.annotations = [];
+    }
+
+  let s_UserRemoved =
+    {
+      Signal.interface;
+      Signal.member = "UserRemoved";
+      Signal.args = arg2 (None, basic_uint32) (None, basic_object_path);
+      Signal.annotations = [];
+    }
+
+  let p_BlockInhibited =
+    {
+      Property.interface;
+      Property.member = "BlockInhibited";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_BootLoaderEntries =
+    {
+      Property.interface;
+      Property.member = "BootLoaderEntries";
+      Property.typ = array basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_DelayInhibited =
+    {
+      Property.interface;
+      Property.member = "DelayInhibited";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_Docked =
+    {
+      Property.interface;
+      Property.member = "Docked";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_EnableWallMessages =
+    {
+      Property.interface;
+      Property.member = "EnableWallMessages";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable_writable;
+      Property.annotations =
+        [
+          ("org.freedesktop.systemd1.Privileged", "true");
+          (OBus_introspect.emits_changed_signal, "false");
+        ];
+    }
+
+  let p_HandleHibernateKey =
+    {
+      Property.interface;
+      Property.member = "HandleHibernateKey";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_HandleLidSwitch =
+    {
+      Property.interface;
+      Property.member = "HandleLidSwitch";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_HandleLidSwitchDocked =
+    {
+      Property.interface;
+      Property.member = "HandleLidSwitchDocked";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_HandleLidSwitchExternalPower =
+    {
+      Property.interface;
+      Property.member = "HandleLidSwitchExternalPower";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_HandlePowerKey =
+    {
+      Property.interface;
+      Property.member = "HandlePowerKey";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_HandleSuspendKey =
+    {
+      Property.interface;
+      Property.member = "HandleSuspendKey";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_HoldoffTimeoutUSec =
+    {
+      Property.interface;
+      Property.member = "HoldoffTimeoutUSec";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_IdleAction =
+    {
+      Property.interface;
+      Property.member = "IdleAction";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_IdleActionUSec =
+    {
+      Property.interface;
+      Property.member = "IdleActionUSec";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_IdleHint =
+    {
+      Property.interface;
+      Property.member = "IdleHint";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_IdleSinceHint =
+    {
+      Property.interface;
+      Property.member = "IdleSinceHint";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_IdleSinceHintMonotonic =
+    {
+      Property.interface;
+      Property.member = "IdleSinceHintMonotonic";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_InhibitDelayMaxUSec =
+    {
+      Property.interface;
+      Property.member = "InhibitDelayMaxUSec";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_InhibitorsMax =
+    {
+      Property.interface;
+      Property.member = "InhibitorsMax";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_KillExcludeUsers =
+    {
+      Property.interface;
+      Property.member = "KillExcludeUsers";
+      Property.typ = array basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_KillOnlyUsers =
+    {
+      Property.interface;
+      Property.member = "KillOnlyUsers";
+      Property.typ = array basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_KillUserProcesses =
+    {
+      Property.interface;
+      Property.member = "KillUserProcesses";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_LidClosed =
+    {
+      Property.interface;
+      Property.member = "LidClosed";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_NAutoVTs =
+    {
+      Property.interface;
+      Property.member = "NAutoVTs";
+      Property.typ = basic_uint32;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_NCurrentInhibitors =
+    {
+      Property.interface;
+      Property.member = "NCurrentInhibitors";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_NCurrentSessions =
+    {
+      Property.interface;
+      Property.member = "NCurrentSessions";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_OnExternalPower =
+    {
+      Property.interface;
+      Property.member = "OnExternalPower";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_PreparingForShutdown =
+    {
+      Property.interface;
+      Property.member = "PreparingForShutdown";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_PreparingForSleep =
+    {
+      Property.interface;
+      Property.member = "PreparingForSleep";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_RebootParameter =
+    {
+      Property.interface;
+      Property.member = "RebootParameter";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_RebootToBootLoaderEntry =
+    {
+      Property.interface;
+      Property.member = "RebootToBootLoaderEntry";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_RebootToBootLoaderMenu =
+    {
+      Property.interface;
+      Property.member = "RebootToBootLoaderMenu";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_RebootToFirmwareSetup =
+    {
+      Property.interface;
+      Property.member = "RebootToFirmwareSetup";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_RemoveIPC =
+    {
+      Property.interface;
+      Property.member = "RemoveIPC";
+      Property.typ = basic_boolean;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_RuntimeDirectorySize =
+    {
+      Property.interface;
+      Property.member = "RuntimeDirectorySize";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_ScheduledShutdown =
+    {
+      Property.interface;
+      Property.member = "ScheduledShutdown";
+      Property.typ = structure (seq2 basic_string basic_uint64);
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_SessionsMax =
+    {
+      Property.interface;
+      Property.member = "SessionsMax";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_UserStopDelayUSec =
+    {
+      Property.interface;
+      Property.member = "UserStopDelayUSec";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_WallMessage =
+    {
+      Property.interface;
+      Property.member = "WallMessage";
+      Property.typ = basic_string;
+      Property.access = Property.readable_writable;
+      Property.annotations =
+        [
+          ("org.freedesktop.systemd1.Privileged", "true");
+          (OBus_introspect.emits_changed_signal, "false");
+        ];
+    }
+
   type 'a members = {
     m_ActivateSession : 'a OBus_object.t -> string -> unit Lwt.t;
     m_ActivateSessionOnSeat : 'a OBus_object.t -> string * string -> unit Lwt.t;
@@ -927,7 +1057,31 @@ struct
     m_CanSuspend : 'a OBus_object.t -> unit -> string Lwt.t;
     m_CanSuspendThenHibernate : 'a OBus_object.t -> unit -> string Lwt.t;
     m_CancelScheduledShutdown : 'a OBus_object.t -> unit -> bool Lwt.t;
-    m_CreateSession : 'a OBus_object.t -> int32 * int32 * string * string * string * string * string * int32 * string * string * bool * string * string * (string * OBus_value.V.single) list -> (string * OBus_path.t * string * Unix.file_descr * int32 * string * int32 * bool) Lwt.t;
+    m_CreateSession :
+      'a OBus_object.t ->
+      int32
+      * int32
+      * string
+      * string
+      * string
+      * string
+      * string
+      * int32
+      * string
+      * string
+      * bool
+      * string
+      * string
+      * (string * OBus_value.V.single) list ->
+      ( string
+      * OBus_path.t
+      * string
+      * Unix.file_descr
+      * int32
+      * string
+      * int32
+      * bool )
+      Lwt.t;
     m_FlushDevices : 'a OBus_object.t -> bool -> unit Lwt.t;
     m_GetSeat : 'a OBus_object.t -> string -> OBus_path.t Lwt.t;
     m_GetSession : 'a OBus_object.t -> string -> OBus_path.t Lwt.t;
@@ -937,13 +1091,23 @@ struct
     m_Halt : 'a OBus_object.t -> bool -> unit Lwt.t;
     m_Hibernate : 'a OBus_object.t -> bool -> unit Lwt.t;
     m_HybridSleep : 'a OBus_object.t -> bool -> unit Lwt.t;
-    m_Inhibit : 'a OBus_object.t -> string * string * string * string -> Unix.file_descr Lwt.t;
+    m_Inhibit :
+      'a OBus_object.t ->
+      string * string * string * string ->
+      Unix.file_descr Lwt.t;
     m_KillSession : 'a OBus_object.t -> string * string * int32 -> unit Lwt.t;
     m_KillUser : 'a OBus_object.t -> int32 * int32 -> unit Lwt.t;
-    m_ListInhibitors : 'a OBus_object.t -> unit -> (string * string * string * string * int32 * int32) list Lwt.t;
+    m_ListInhibitors :
+      'a OBus_object.t ->
+      unit ->
+      (string * string * string * string * int32 * int32) list Lwt.t;
     m_ListSeats : 'a OBus_object.t -> unit -> (string * OBus_path.t) list Lwt.t;
-    m_ListSessions : 'a OBus_object.t -> unit -> (string * int32 * string * string * OBus_path.t) list Lwt.t;
-    m_ListUsers : 'a OBus_object.t -> unit -> (int32 * string * OBus_path.t) list Lwt.t;
+    m_ListSessions :
+      'a OBus_object.t ->
+      unit ->
+      (string * int32 * string * string * OBus_path.t) list Lwt.t;
+    m_ListUsers :
+      'a OBus_object.t -> unit -> (int32 * string * OBus_path.t) list Lwt.t;
     m_LockSession : 'a OBus_object.t -> string -> unit Lwt.t;
     m_LockSessions : 'a OBus_object.t -> unit -> unit Lwt.t;
     m_PowerOff : 'a OBus_object.t -> bool -> unit Lwt.t;
@@ -967,7 +1131,9 @@ struct
     p_BootLoaderEntries : 'a OBus_object.t -> string list React.signal;
     p_DelayInhibited : 'a OBus_object.t -> string React.signal;
     p_Docked : 'a OBus_object.t -> bool React.signal;
-    p_EnableWallMessages : ('a OBus_object.t -> bool React.signal) * ('a OBus_object.t -> bool -> unit Lwt.t);
+    p_EnableWallMessages :
+      ('a OBus_object.t -> bool React.signal)
+      * ('a OBus_object.t -> bool -> unit Lwt.t);
     p_HandleHibernateKey : 'a OBus_object.t -> string React.signal;
     p_HandleLidSwitch : 'a OBus_object.t -> string React.signal;
     p_HandleLidSwitchDocked : 'a OBus_object.t -> string React.signal;
@@ -1001,12 +1167,13 @@ struct
     p_ScheduledShutdown : 'a OBus_object.t -> (string * int64) React.signal;
     p_SessionsMax : 'a OBus_object.t -> int64 React.signal;
     p_UserStopDelayUSec : 'a OBus_object.t -> int64 React.signal;
-    p_WallMessage : ('a OBus_object.t -> string React.signal) * ('a OBus_object.t -> string -> unit Lwt.t);
+    p_WallMessage :
+      ('a OBus_object.t -> string React.signal)
+      * ('a OBus_object.t -> string -> unit Lwt.t);
   }
+
   let make members =
-    OBus_object.make_interface_unsafe interface
-      [
-      ]
+    OBus_object.make_interface_unsafe interface []
       [|
         method_info m_ActivateSession members.m_ActivateSession;
         method_info m_ActivateSessionOnSeat members.m_ActivateSessionOnSeat;
@@ -1017,9 +1184,12 @@ struct
         method_info m_CanPowerOff members.m_CanPowerOff;
         method_info m_CanReboot members.m_CanReboot;
         method_info m_CanRebootParameter members.m_CanRebootParameter;
-        method_info m_CanRebootToBootLoaderEntry members.m_CanRebootToBootLoaderEntry;
-        method_info m_CanRebootToBootLoaderMenu members.m_CanRebootToBootLoaderMenu;
-        method_info m_CanRebootToFirmwareSetup members.m_CanRebootToFirmwareSetup;
+        method_info m_CanRebootToBootLoaderEntry
+          members.m_CanRebootToBootLoaderEntry;
+        method_info m_CanRebootToBootLoaderMenu
+          members.m_CanRebootToBootLoaderMenu;
+        method_info m_CanRebootToFirmwareSetup
+          members.m_CanRebootToFirmwareSetup;
         method_info m_CanSuspend members.m_CanSuspend;
         method_info m_CanSuspendThenHibernate members.m_CanSuspendThenHibernate;
         method_info m_CancelScheduledShutdown members.m_CancelScheduledShutdown;
@@ -1047,9 +1217,12 @@ struct
         method_info m_ReleaseSession members.m_ReleaseSession;
         method_info m_ScheduleShutdown members.m_ScheduleShutdown;
         method_info m_SetRebootParameter members.m_SetRebootParameter;
-        method_info m_SetRebootToBootLoaderEntry members.m_SetRebootToBootLoaderEntry;
-        method_info m_SetRebootToBootLoaderMenu members.m_SetRebootToBootLoaderMenu;
-        method_info m_SetRebootToFirmwareSetup members.m_SetRebootToFirmwareSetup;
+        method_info m_SetRebootToBootLoaderEntry
+          members.m_SetRebootToBootLoaderEntry;
+        method_info m_SetRebootToBootLoaderMenu
+          members.m_SetRebootToBootLoaderMenu;
+        method_info m_SetRebootToFirmwareSetup
+          members.m_SetRebootToFirmwareSetup;
         method_info m_SetUserLinger members.m_SetUserLinger;
         method_info m_SetWallMessage members.m_SetWallMessage;
         method_info m_Suspend members.m_Suspend;
@@ -1075,11 +1248,14 @@ struct
         property_r_info p_BootLoaderEntries members.p_BootLoaderEntries;
         property_r_info p_DelayInhibited members.p_DelayInhibited;
         property_r_info p_Docked members.p_Docked;
-        property_rw_info p_EnableWallMessages (fst members.p_EnableWallMessages) (snd members.p_EnableWallMessages);
+        property_rw_info p_EnableWallMessages
+          (fst members.p_EnableWallMessages)
+          (snd members.p_EnableWallMessages);
         property_r_info p_HandleHibernateKey members.p_HandleHibernateKey;
         property_r_info p_HandleLidSwitch members.p_HandleLidSwitch;
         property_r_info p_HandleLidSwitchDocked members.p_HandleLidSwitchDocked;
-        property_r_info p_HandleLidSwitchExternalPower members.p_HandleLidSwitchExternalPower;
+        property_r_info p_HandleLidSwitchExternalPower
+          members.p_HandleLidSwitchExternalPower;
         property_r_info p_HandlePowerKey members.p_HandlePowerKey;
         property_r_info p_HandleSuspendKey members.p_HandleSuspendKey;
         property_r_info p_HoldoffTimeoutUSec members.p_HoldoffTimeoutUSec;
@@ -1087,7 +1263,8 @@ struct
         property_r_info p_IdleActionUSec members.p_IdleActionUSec;
         property_r_info p_IdleHint members.p_IdleHint;
         property_r_info p_IdleSinceHint members.p_IdleSinceHint;
-        property_r_info p_IdleSinceHintMonotonic members.p_IdleSinceHintMonotonic;
+        property_r_info p_IdleSinceHintMonotonic
+          members.p_IdleSinceHintMonotonic;
         property_r_info p_InhibitDelayMaxUSec members.p_InhibitDelayMaxUSec;
         property_r_info p_InhibitorsMax members.p_InhibitorsMax;
         property_r_info p_KillExcludeUsers members.p_KillExcludeUsers;
@@ -1101,14 +1278,18 @@ struct
         property_r_info p_PreparingForShutdown members.p_PreparingForShutdown;
         property_r_info p_PreparingForSleep members.p_PreparingForSleep;
         property_r_info p_RebootParameter members.p_RebootParameter;
-        property_r_info p_RebootToBootLoaderEntry members.p_RebootToBootLoaderEntry;
-        property_r_info p_RebootToBootLoaderMenu members.p_RebootToBootLoaderMenu;
+        property_r_info p_RebootToBootLoaderEntry
+          members.p_RebootToBootLoaderEntry;
+        property_r_info p_RebootToBootLoaderMenu
+          members.p_RebootToBootLoaderMenu;
         property_r_info p_RebootToFirmwareSetup members.p_RebootToFirmwareSetup;
         property_r_info p_RemoveIPC members.p_RemoveIPC;
         property_r_info p_RuntimeDirectorySize members.p_RuntimeDirectorySize;
         property_r_info p_ScheduledShutdown members.p_ScheduledShutdown;
         property_r_info p_SessionsMax members.p_SessionsMax;
         property_r_info p_UserStopDelayUSec members.p_UserStopDelayUSec;
-        property_rw_info p_WallMessage (fst members.p_WallMessage) (snd members.p_WallMessage);
+        property_rw_info p_WallMessage
+          (fst members.p_WallMessage)
+          (snd members.p_WallMessage);
       |]
 end

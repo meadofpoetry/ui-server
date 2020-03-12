@@ -21,27 +21,34 @@ class t (elt : Dom_html.element Js.t) () =
     method active : bool = super#has_class CSS.active
 
     method set_active ?(previous : 'self option) (x : bool) : unit =
-      if x
-      then if self#fade then super#add_class CSS.active else self#activate_slide previous
+      if x then
+        if self#fade then super#add_class CSS.active
+        else self#activate_slide previous
       else super#remove_class CSS.active
 
     method private activate_slide : t option -> unit =
       function
       | None -> super#add_class CSS.active
       | Some prev ->
-          let old_content = Element.query_selector_exn prev#root Selector.content in
+          let old_content =
+            Element.query_selector_exn prev#root Selector.content
+          in
           let old = old_content##getBoundingClientRect in
           let cur = content##getBoundingClientRect in
           (* Calculate the dimensions based on the dimensions of the previous
              indicator *)
           let width_delta =
-            match Js.Optdef.to_option old##.width, Js.Optdef.to_option old##.width with
+            match
+              (Js.Optdef.to_option old##.width, Js.Optdef.to_option old##.width)
+            with
             | Some pw, Some cw -> pw /. cw
             | _ -> failwith "mdc_tab_indicator: width property not found"
           in
           let x_position = old##.left -. cur##.left in
           super#add_class CSS.no_transition;
-          let s = Printf.sprintf "translateX(%gpx) scaleX(%g)" x_position width_delta in
+          let s =
+            Printf.sprintf "translateX(%gpx) scaleX(%g)" x_position width_delta
+          in
           content##.style##.transform := Js.string s;
           (* Force repaint before updating classes and transform to ensure
              the transform properly takes effect *)

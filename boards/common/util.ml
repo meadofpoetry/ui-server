@@ -4,10 +4,7 @@ module List = struct
   let find_map f l =
     let rec aux f = function
       | [] -> None
-      | x :: l' -> (
-        match f x with
-        | Some _ as res -> res
-        | None -> aux f l')
+      | x :: l' -> ( match f x with Some _ as res -> res | None -> aux f l' )
     in
     aux f l
 
@@ -30,8 +27,7 @@ module List = struct
       match l with
       | [] -> f x None acc
       | (x', y') :: l' ->
-          if eq x x'
-          then f x (Some y') (List.rev_append acc l')
+          if eq x x' then f x (Some y') (List.rev_append acc l')
           else search_set eq ((x', y') :: acc) l' x ~f
 
     let update ~eq f x l =

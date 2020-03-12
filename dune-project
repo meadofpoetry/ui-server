@@ -1,4 +1,4 @@
-(lang dune 1.8)
+(lang dune 2.0)
 
 (package
   (name ui-server)

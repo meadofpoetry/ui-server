@@ -9,24 +9,22 @@ module Show_cstruct = struct
     `String (Base64.encode_exn @@ Cstruct.to_string x)
 end
 
-type settings =
-  { https_enabled : bool
-  ; tls_cert : (string * certificate) option
-  ; tls_key : string option }
+type settings = {
+  https_enabled : bool;
+  tls_cert : (string * certificate) option;
+  tls_key : string option;
+}
 [@@deriving yojson]
 
-and certificate =
-  { serial : Show_cstruct.t
-  ; issuer : (string * string) list
-  ; validity : Time.t * Time.t
-  ; subject : (string * string) list
-  ; public_key : public_key
-  ; fingerprints : (hash * Show_cstruct.t) list }
+and certificate = {
+  serial : Show_cstruct.t;
+  issuer : (string * string) list;
+  validity : Time.t * Time.t;
+  subject : (string * string) list;
+  public_key : public_key;
+  fingerprints : (hash * Show_cstruct.t) list;
+}
 
-and public_key =
-  { typ : [`RSA]
-  ; fingerprint : (hash * Show_cstruct.t) list }
+and public_key = { typ : [ `RSA ]; fingerprint : (hash * Show_cstruct.t) list }
 
-and hash =
-  [ `SHA1
-  | `SHA256 ]
+and hash = [ `SHA1 | `SHA256 ]

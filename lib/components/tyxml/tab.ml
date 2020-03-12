@@ -21,8 +21,8 @@ module CSS = struct
       instead of horizontally. *)
   let stacked = BEM.add_modifier root "stacked"
 
-  (** Optional. Indicates that the tab should shrink in size to be as narrow
-      as possible without causing text to wrap. *)
+  (** Optional. Indicates that the tab should shrink in size to be as narrow as
+      possible without causing text to wrap. *)
   let min_width = BEM.add_modifier root "min-width"
 end
 
@@ -41,7 +41,8 @@ struct
 
   let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let tab_text_label ?(classes = return []) ?(a = []) ?label ?(children = nil ()) () =
+  let tab_text_label ?(classes = return []) ?(a = []) ?label
+      ?(children = nil ()) () =
     let classes = fmap (fun x -> CSS.text_label :: x) classes in
     let children =
       match label with
@@ -50,14 +51,8 @@ struct
     in
     span ~a:(a_class classes :: a) children
 
-  let tab_content
-      ?(classes = return [])
-      ?(a = [])
-      ?indicator
-      ?icon
-      ?text_label
-      ?children
-      () =
+  let tab_content ?(classes = return []) ?(a = []) ?indicator ?icon ?text_label
+      ?children () =
     let classes = fmap (fun x -> CSS.content :: x) classes in
     let children =
       match children with
@@ -76,28 +71,18 @@ struct
     let classes = fmap (fun x -> CSS.ripple :: x) classes in
     span ~a:(a_class classes :: a) children
 
-  let tab
-      ?(classes = return [])
-      ?(a = [])
-      ?(active = false)
-      ?(stacked = false)
-      ?(disabled = false)
-      ?(min_width = false)
-      ?(indicator_span_content = false)
-      ?indicator_icon
-      ?icon
-      ?text_label
-      ?(ripple = tab_ripple ())
-      ?(indicator = Tab_indicator_markup.tab_indicator ~active ?icon:indicator_icon ())
-      ?content
-      ?children
-      () =
+  let tab ?(classes = return []) ?(a = []) ?(active = false) ?(stacked = false)
+      ?(disabled = false) ?(min_width = false) ?(indicator_span_content = false)
+      ?indicator_icon ?icon ?text_label ?(ripple = tab_ripple ())
+      ?(indicator =
+        Tab_indicator_markup.tab_indicator ~active ?icon:indicator_icon ())
+      ?content ?children () =
     let classes =
       fmap
-        (Utils.cons_if active CSS.active
+        ( Utils.cons_if active CSS.active
         % Utils.cons_if stacked CSS.stacked
         % Utils.cons_if min_width CSS.min_width
-        % List.cons CSS.root)
+        % List.cons CSS.root )
         classes
     in
     let content =
@@ -107,23 +92,21 @@ struct
           return
           @@ tab_content
                ?indicator:
-                 (if indicator_span_content then Some (return indicator) else None)
-               ?icon
-               ?text_label
-               ()
+                 ( if indicator_span_content then Some (return indicator)
+                 else None )
+               ?icon ?text_label ()
     in
     let children =
       match children with
       | Some x -> x
       | None ->
-          if indicator_span_content
-          then content @:: return ripple @:: nil ()
+          if indicator_span_content then content @:: return ripple @:: nil ()
           else content @:: return indicator @:: return ripple @:: nil ()
     in
     button
       ~a:
-        (a_class classes :: a_role (return ["tab"]) :: a
-        |> Utils.cons_if_lazy disabled a_disabled)
+        ( a_class classes :: a_role (return [ "tab" ]) :: a
+        |> Utils.cons_if_lazy disabled a_disabled )
       children
 end
 

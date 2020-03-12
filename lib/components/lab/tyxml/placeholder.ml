@@ -16,10 +16,7 @@ end
 
 let error_svg_path = Components_tyxml.Svg_icons.alert_decagram
 
-type appearance =
-  [ `Icon
-  | `Progress
-  | `Error ]
+type appearance = [ `Icon | `Progress | `Error ]
 
 module Make
     (Xml : Xml_sigs.T with type ('a, 'b) W.ft = 'a -> 'b)
@@ -41,11 +38,14 @@ struct
     let dot () = return (span (singleton (return (txt (return "."))))) in
     span ~a:(a_class classes :: a) (dot () @:: dot () @:: dot () @:: nil ())
 
-  let placeholder_text ?(classes = return []) ?(a = []) ?(loading = false) ?text () =
+  let placeholder_text ?(classes = return []) ?(a = []) ?(loading = false) ?text
+      () =
     let classes =
       fmap (Utils.cons_if loading CSS.text_loading % List.cons CSS.text) classes
     in
-    let content = if loading then singleton (return (placeholder_dots ())) else nil () in
+    let content =
+      if loading then singleton (return (placeholder_dots ())) else nil ()
+    in
     let text =
       match text with
       | None -> None
@@ -54,14 +54,8 @@ struct
     in
     span ~a:(a_class classes :: a) (text ^:: content)
 
-  let placeholder_content
-      ?(classes = return [])
-      ?(a = [])
-      ?loading
-      ?icon
-      ?text
-      ?children
-      () =
+  let placeholder_content ?(classes = return []) ?(a = []) ?loading ?icon ?text
+      ?children () =
     let classes = fmap (fun x -> CSS.content :: x) classes in
     let children =
       match children with
@@ -78,16 +72,11 @@ struct
     in
     div ~a:(a_class classes :: a) children
 
-  let placeholder
-      ?(classes = return [])
-      ?(a = [])
-      ?(error = false)
-      ?loading
-      ?icon
-      ?text
-      ?children
-      () =
-    let classes = fmap (Utils.cons_if error CSS.error % List.cons CSS.root) classes in
+  let placeholder ?(classes = return []) ?(a = []) ?(error = false) ?loading
+      ?icon ?text ?children () =
+    let classes =
+      fmap (Utils.cons_if error CSS.error % List.cons CSS.root) classes
+    in
     let children =
       match children with
       | Some x -> x

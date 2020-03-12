@@ -26,7 +26,8 @@ let get_config (api : Protocol.api) _user _body _env _state =
   return_value @@ config_to_yojson @@ React.S.value api.notifs.config
 
 let get_fpga_version (api : Protocol.api) _user _body _env _state =
-  api.channel Request.(Device FPGA_version) >>=? return_value % Util_json.Int.to_yojson
+  api.channel Request.(Device FPGA_version)
+  >>=? return_value % Util_json.Int.to_yojson
 
 let get_hardware_version (api : Protocol.api) _user _body _env _state =
   api.channel Request.(Device Hardware_version)
@@ -37,7 +38,8 @@ let get_firmware_version (api : Protocol.api) _user _body _env _state =
   >>=? return_value % Util_json.Int.to_yojson
 
 let get_serial_number (api : Protocol.api) _user _body _env _state =
-  api.channel Request.(Device Serial_number) >>=? return_value % Util_json.Int.to_yojson
+  api.channel Request.(Device Serial_number)
+  >>=? return_value % Util_json.Int.to_yojson
 
 let get_type (api : Protocol.api) _user _body _env _state =
   api.channel Request.(Device Type) >>=? return_value % Util_json.Int.to_yojson

@@ -2,9 +2,9 @@ module CSS = struct
   (** Mandatory. The main card element. *)
   let root = "mdc-card"
 
-  (** Optional. The main tappable area of the card. Typically contains most
-      (or all) card content except mdc-card__actions. Only applicable to cards
-      that have a primary action that the main surface should trigger. *)
+  (** Optional. The main tappable area of the card. Typically contains most (or
+      all) card content except mdc-card__actions. Only applicable to cards that
+      have a primary action that the main surface should trigger. *)
   let primary_action = BEM.add_element root "primary-action"
 
   (** Optional. Media area that displays a custom background-image with b
@@ -39,8 +39,8 @@ module CSS = struct
       width, maintaining a 16:9 aspect ratio. *)
   let media_16_9 = BEM.add_modifier media "16-9"
 
-  (** Optional. Removes the action area's padding and causes its only child
-      (an mdc-card__action element) to consume 100% of the action area's width. *)
+  (** Optional. Removes the action area's padding and causes its only child (an
+      mdc-card__action element) to consume 100% of the action area's width. *)
   let actions_full_bleed = BEM.add_modifier actions "full-bleed"
 
   (** Optional. An action button with text. *)
@@ -70,59 +70,35 @@ struct
 
   let ( % ) f g x = f (g x)
 
-  let card_media_content
-      ?(tag = div)
-      ?(classes = return [])
-      ?(a = [])
-      ?(children = nil ())
-      () =
+  let card_media_content ?(tag = div) ?(classes = return []) ?(a = [])
+      ?(children = nil ()) () =
     let classes = fmap (List.cons CSS.media_content) classes in
     tag ~a:(a_class classes :: a) children
 
-  let card_media
-      ?(tag = div)
-      ?(classes = return [])
-      ?(a = [])
-      ?(square = false)
-      ?(letterbox = false)
-      ?(primary_action = false)
-      ?(children = nil ())
-      () =
+  let card_media ?(tag = div) ?(classes = return []) ?(a = []) ?(square = false)
+      ?(letterbox = false) ?(primary_action = false) ?(children = nil ()) () =
     let classes =
       fmap
-        (Utils.cons_if square CSS.media_square
+        ( Utils.cons_if square CSS.media_square
         % Utils.cons_if letterbox CSS.media_16_9
         % Utils.cons_if primary_action CSS.primary_action
-        % List.cons CSS.media)
+        % List.cons CSS.media )
         classes
     in
-    tag ~a:([a_class classes] @ a) children
+    tag ~a:([ a_class classes ] @ a) children
 
-  let card_action_buttons
-      ?(tag = div)
-      ?(classes = return [])
-      ?(a = [])
-      ?(children = nil ())
-      () =
+  let card_action_buttons ?(tag = div) ?(classes = return []) ?(a = [])
+      ?(children = nil ()) () =
     let classes = fmap (List.cons CSS.action_buttons) classes in
     tag ~a:(a_class classes :: a) children
 
-  let card_action_icons
-      ?(tag = div)
-      ?(classes = return [])
-      ?(a = [])
-      ?(children = nil ())
-      () =
+  let card_action_icons ?(tag = div) ?(classes = return []) ?(a = [])
+      ?(children = nil ()) () =
     let classes = fmap (List.cons CSS.action_icons) classes in
     tag ~a:(a_class classes :: a) children
 
-  let card_actions
-      ?(tag = section)
-      ?(classes = return [])
-      ?(a = [])
-      ?(full_bleed = false)
-      ?(children = nil ())
-      () : 'a elt =
+  let card_actions ?(tag = section) ?(classes = return []) ?(a = [])
+      ?(full_bleed = false) ?(children = nil ()) () : 'a elt =
     let classes =
       fmap
         (Utils.cons_if full_bleed CSS.actions_full_bleed % List.cons CSS.actions)
@@ -130,13 +106,8 @@ struct
     in
     tag ~a:(a_class classes :: a) children
 
-  let card
-      ?(tag = div)
-      ?(classes = return [])
-      ?(a = [])
-      ?(outlined = false)
-      ?(children = nil ())
-      () =
+  let card ?(tag = div) ?(classes = return []) ?(a = []) ?(outlined = false)
+      ?(children = nil ()) () =
     let classes =
       fmap (Utils.cons_if outlined CSS.outlined % List.cons CSS.root) classes
     in

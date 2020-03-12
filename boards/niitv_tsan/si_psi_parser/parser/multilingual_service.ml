@@ -1,8 +1,7 @@
 let name = "multilingual_service_name_descriptor"
 
 let rec parse bs off =
-  if Bitstring.bitstring_length bs = 0
-  then []
+  if Bitstring.bitstring_length bs = 0 then []
   else
     match%bitstring bs with
     | {| lang_code : 24 : bitstring
@@ -25,24 +24,17 @@ let rec parse bs off =
           | Error _ -> "Unable to decode"
         in
         let nodes =
-          [ Node.make
-              ~parsed
-              ~offset:off
-              24
-              "ISO_639_language_code"
-              (Bits (Int lang_code))
-          ; Node.make
-              ~offset:(off + off_1)
-              8
-              "service_provider_name_length"
-              (Dec (Int length_1))
-          ; Node.make
-              ~offset:(off + off_2)
-              (length_1 * 8)
-              "service_provider_name"
-              (String ser_p)
-          ; Node.make ~offset:(off + off_3) 8 "service_name_length" (Dec (Int length_2))
-          ; Node.make ~offset:(off + off_4) (length_2 * 8) "service__name" (String ser)
+          [
+            Node.make ~parsed ~offset:off 24 "ISO_639_language_code"
+              (Bits (Int lang_code));
+            Node.make ~offset:(off + off_1) 8 "service_provider_name_length"
+              (Dec (Int length_1));
+            Node.make ~offset:(off + off_2) (length_1 * 8)
+              "service_provider_name" (String ser_p);
+            Node.make ~offset:(off + off_3) 8 "service_name_length"
+              (Dec (Int length_2));
+            Node.make ~offset:(off + off_4) (length_2 * 8) "service__name"
+              (String ser);
           ]
         in
         let real_length = 40 + ((length_1 + length_2) * 8) in

@@ -12,10 +12,10 @@ module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
 
 let ( >>= ) = Lwt_result.bind
 
-type state =
-  { mutable socket : Api_js.Websocket.JSON.t option
-  ; mutable finalize : unit -> unit
-  }
+type state = {
+  mutable socket : Api_js.Websocket.JSON.t option;
+  mutable finalize : unit -> unit;
+}
 
 module Selector = struct
   let stream_select = Printf.sprintf ".%s" Stream_select.CSS.root
@@ -26,17 +26,14 @@ end
 type event =
   [ `Bitrate of (Stream.ID.t * Bitrate.ext) list
   | `Tables of (Stream.ID.t * (SI_PSI_table.id * SI_PSI_table.t) list ts) list
-  | `State of Topology.state
-  ]
+  | `State of Topology.state ]
 
 class t ~set_stream ~set_hex elt () =
   object
     val stream_select : Stream_select.t =
       Stream_select.attach ~on_change:(fun x ->
           let id =
-            match x#value with
-            | None -> None
-            | Some (x : Stream.t) -> Some x.id
+            match x#value with None -> None | Some (x : Stream.t) -> Some x.id
           in
           set_stream id)
       @@ Element.query_selector_exn elt Selector.stream_select
@@ -63,18 +60,17 @@ let attach ~set_stream ~set_hex elt : t =
 
 (** Make necessary HTTP and Websocket requests to the server. *)
 let do_requests ~input state control =
-  Http_streams.get_streams ~inputs:[ input ] control
-  >>= fun streams_init ->
-  Http_monitoring.get_si_psi_tables control
-  >>= fun tables_init ->
-  Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
+  Http_streams.get_streams ~inputs:[ input ] control >>= fun streams_init ->
+  Http_monitoring.get_si_psi_tables control >>= fun tables_init ->
+  Api_js.Websocket.JSON.open_socket
+    ~path:(Netlib.Uri.Path.Format.of_string "ws")
+    ()
   >>= fun socket ->
   Option.iter Api_js.Websocket.close_socket state.socket;
   state.socket <- Some socket;
   Http_streams.Event.get_streams ~inputs:[ input ] socket control
   >>= fun (_, streams_ev) ->
-  Http_device.Event.get_state socket control
-  >>= fun (_, state_ev) ->
+  Http_device.Event.get_state socket control >>= fun (_, state_ev) ->
   Http_monitoring.Event.get_bitrate_with_stats socket control
   >>= fun (_, bitrate_ev) ->
   Http_monitoring.Event.get_si_psi_tables socket control
@@ -98,7 +94,7 @@ let get_data v = function
   | Some s -> (
       match List.assoc_opt s v with
       | None -> []
-      | Some (x : _ Board_niitv_tsan_types.ts) -> x.data)
+      | Some (x : _ Board_niitv_tsan_types.ts) -> x.data )
 
 (** Called when this tab becomes active. *)
 let on_visible ~input (elt : Dom_html.element Js.t) (state : state) control =
@@ -108,20 +104,15 @@ let on_visible ~input (elt : Dom_html.element Js.t) (state : state) control =
     do_requests ~input state control
     >>= fun (streams, tables, state_ev, bitrate_ev, fin) ->
     let stream, set_stream =
-      S.create
-        (match S.value streams with
-        | [] -> None
-        | x :: _ -> Some x.id)
+      S.create (match S.value streams with [] -> None | x :: _ -> Some x.id)
     in
     let s_data = S.l2 get_data tables stream in
     let bitrate =
       S.hold None
       @@ S.sample
-           (fun bitrate -> function
-             | None -> None
+           (fun bitrate -> function None -> None
              | Some stream -> List.assoc_opt stream bitrate)
-           bitrate_ev
-           stream
+           bitrate_ev stream
     in
     let hex, set_hex = S.create false in
     let stream_select = Stream_select.R.create ~streams () in
@@ -129,11 +120,7 @@ let on_visible ~input (elt : Dom_html.element Js.t) (state : state) control =
       Si_psi_overview.R.create
         ~get_attribute:(fun elt attr ->
           Element.get_attribute (Tyxml_js.To_dom.of_element elt) attr)
-        ~hex
-        ~init:(RList.from_signal s_data)
-        ~bitrate
-        ~control
-        ()
+        ~hex ~init:(RList.from_signal s_data) ~bitrate ~control ()
     in
     let page =
       attach ~set_stream ~set_hex
@@ -164,8 +151,7 @@ let on_hidden state =
 let init ~input control =
   let state = { socket = None; finalize = (fun () -> ()) } in
   let result =
-    Ui_templates.Tabbed_page.Tabpanel.init
-      ~id:(id control)
+    Ui_templates.Tabbed_page.Tabpanel.init ~id:(id control)
       ~on_visible:(fun tabpanel -> on_visible ~input tabpanel state control)
       ~on_hidden:(fun _tabpanel -> on_hidden state)
       ()

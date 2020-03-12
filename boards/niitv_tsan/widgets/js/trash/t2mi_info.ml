@@ -6,23 +6,13 @@ let t2_fft_of_int t2_profile = function
   | 0b000 -> FFT_2K
   | 0b001 -> FFT_8K
   | 0b010 -> FFT_4K
-  | 0b011 ->
-     begin match t2_profile with
-     | Base _ -> FFT_1K
-     | Lite _ -> FFT_16K
-     end
+  | 0b011 -> ( match t2_profile with Base _ -> FFT_1K | Lite _ -> FFT_16K )
   | 0b100 -> FFT_16K
-  | 0b101 as x ->
-     begin match t2_profile with
-     | Base _ -> FFT_32K
-     | Lite _ -> Unknown x
-     end
+  | 0b101 as x -> (
+      match t2_profile with Base _ -> FFT_32K | Lite _ -> Unknown x )
   | 0b110 -> FFT_8K
-  | 0b111 as x ->
-     begin match t2_profile with
-     | Base _ -> FFT_32K
-     | Lite _ -> Unknown x
-     end
+  | 0b111 as x -> (
+      match t2_profile with Base _ -> FFT_32K | Lite _ -> Unknown x )
   | x -> Unknown x
 
 (* L1 preamble *)
@@ -146,14 +136,13 @@ let t2_l1_cod_to_int : t2_l1_cod -> int = function
 
 (* L1 fec *)
 
-let t2_l1_fec_of_int : int -> t2_l1_fec= function
+let t2_l1_fec_of_int : int -> t2_l1_fec = function
   | 0b00 -> LDPC_16K
   | x -> Unknown x
 
 let t2_l1_fec_to_int : t2_l1_fec -> int = function
   | LDPC_16K -> 0b00
   | Unknown x -> x
-
 
 (* Pilot pattern *)
 
@@ -193,7 +182,6 @@ let t2_version_to_int = function
   | V1_3_1 -> 0b0010
   | Unknown x -> x
 
-
 (* PLP type *)
 
 let t2_plp_type_of_int = function
@@ -231,26 +219,14 @@ let t2_plp_cod_of_int t2_profile = function
   | 0b001 -> CR_3_5
   | 0b010 -> CR_2_3
   | 0b011 -> CR_3_4
-  | 0b100 as x ->
-     begin match t2_profile with
-     | Base _ -> CR_4_5
-     | Lite _ -> Unknown x
-     end
-  | 0b101 as x ->
-     begin match t2_profile with
-     | Base _ -> CR_5_6
-     | Lite _ -> Unknown x
-     end
-  | 0b110 as x ->
-     begin match t2_profile with
-     | Lite _ -> CR_1_3
-     | Base _ -> Unknown x
-     end
-  | 0b111 as x ->
-     begin match t2_profile with
-     | Lite _ -> CR_2_5
-     | Base _ -> Unknown x
-     end
+  | 0b100 as x -> (
+      match t2_profile with Base _ -> CR_4_5 | Lite _ -> Unknown x )
+  | 0b101 as x -> (
+      match t2_profile with Base _ -> CR_5_6 | Lite _ -> Unknown x )
+  | 0b110 as x -> (
+      match t2_profile with Lite _ -> CR_1_3 | Base _ -> Unknown x )
+  | 0b111 as x -> (
+      match t2_profile with Lite _ -> CR_2_5 | Base _ -> Unknown x )
   | x -> Unknown x
 
 let t2_plp_cod_to_int = function
@@ -263,7 +239,6 @@ let t2_plp_cod_to_int = function
   | CR_1_3 -> 0b110
   | CR_2_5 -> 0b111
   | Unknown x -> x
-
 
 (* PLP modulation *)
 
@@ -285,11 +260,8 @@ let t2_plp_mod_to_int = function
 
 let t2_plp_fec_of_int t2_profile = function
   | 0b00 -> LDPC_16K
-  | 0b01 as x ->
-     begin match t2_profile with
-     | Base _ -> LDPC_64K
-     | Lite _ -> Unknown x
-     end
+  | 0b01 as x -> (
+      match t2_profile with Base _ -> LDPC_64K | Lite _ -> Unknown x )
   | x -> Unknown x
 
 let t2_plp_fec_to_int = function
@@ -313,10 +285,6 @@ let t2_plp_mode_to_int = function
 
 (* Aux stream type *)
 
-let aux_stream_type_of_int = function
-  | 0b0000 -> TX_SIG
-  | x -> Unknown x
+let aux_stream_type_of_int = function 0b0000 -> TX_SIG | x -> Unknown x
 
-let aux_stream_type_to_int = function
-  | TX_SIG -> 0xb0000
-  | Unknown x -> x
+let aux_stream_type_to_int = function TX_SIG -> 0xb0000 | Unknown x -> x

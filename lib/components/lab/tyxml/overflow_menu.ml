@@ -31,24 +31,18 @@ struct
     in
     Icon_button_markup.icon_button ~classes ?a ~icon ()
 
-  let overflow_menu
-      ?(classes = [])
-      ?(a = [])
-      ?(overflow = Xml.W.return @@ overflow ())
-      ?menu
-      ~actions
-      () : 'a elt =
+  let overflow_menu ?(classes = []) ?(a = [])
+      ?(overflow = Xml.W.return @@ overflow ()) ?menu ~actions () : 'a elt =
     let classes = Xml.W.return (CSS.root :: classes) in
-    div
-      ~a:(a_class classes :: a)
+    div ~a:(a_class classes :: a)
       Xml.W.(
         cons
-          (return @@ div ~a:[a_class (return [CSS.actions])] actions)
+          (return @@ div ~a:[ a_class (return [ CSS.actions ]) ] actions)
           (cons
-             (return
+             ( return
              @@ div
-                  ~a:[a_class (return [CSS.overflow])]
-                  (cons overflow (menu ^:: nil ())))
+                  ~a:[ a_class (return [ CSS.overflow ]) ]
+                  (cons overflow (menu ^:: nil ())) )
              (nil ())))
 end
 

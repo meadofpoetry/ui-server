@@ -1,6 +1,3 @@
+let off () = Login1.poweroff ()
 
-let off () =
-  Login1.poweroff ()
-
-let reboot () =
-  Login1.reboot ()
+let reboot () = Login1.reboot ()

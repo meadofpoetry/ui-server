@@ -11,4 +11,5 @@ val clear : t -> unit
 
 val set_period : t -> Ptime.span -> unit
 
-val map : t -> (Stream.ID.t * Bitrate.cur) list -> (Stream.ID.t * Bitrate.ext) list
+val map :
+  t -> (Stream.ID.t * Bitrate.cur) list -> (Stream.ID.t * Bitrate.ext) list

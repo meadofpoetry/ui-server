@@ -16,14 +16,16 @@ let parse =
         match Date_time.parse_timestamp utc_time with
         | Some x -> Node.Time x
         | None -> (
-            match%bitstring utc_time with
-            | {| i : 40 |} -> Node.Dec (Uint64 i))
+            match%bitstring utc_time with {| i : 40 |} -> Node.Dec (Uint64 i) )
       in
       let nodes =
-        [ Node.make ~offset:off_1 40 "utc_time" utc_time
-        ; Node.make ~offset:off_2 4 "reserved" (Hex (Int reserved))
-        ; Node.make ~offset:off_3 12 "descriptors_loop_length" (Hex (Int length))
-        ; Node.make ~offset:off_4 (length * 8) "descriptors" (List dscrs)
-        ; Node.make ~offset:off_5 32 "CRC_32" (Hex (Uint32 crc32)) ]
+        [
+          Node.make ~offset:off_1 40 "utc_time" utc_time;
+          Node.make ~offset:off_2 4 "reserved" (Hex (Int reserved));
+          Node.make ~offset:off_3 12 "descriptors_loop_length"
+            (Hex (Int length));
+          Node.make ~offset:off_4 (length * 8) "descriptors" (List dscrs);
+          Node.make ~offset:off_5 32 "CRC_32" (Hex (Uint32 crc32));
+        ]
       in
       header @ nodes

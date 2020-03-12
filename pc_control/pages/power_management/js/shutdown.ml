@@ -2,7 +2,8 @@ open Js_of_ocaml
 open Js_of_ocaml_tyxml
 open Components
 module D =
-  Page_power_management_tyxml.Reboot.Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
+  Page_power_management_tyxml.Reboot.Make (Tyxml_js.Xml) (Tyxml_js.Svg)
+    (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
@@ -14,8 +15,10 @@ let make_warning_dialog () =
   let open Dialog.D in
   let title = dialog_title ~title:"Выключить прибор?" () in
   let actions =
-    [ dialog_action ~action:Close ~label:"Отмена" ()
-    ; dialog_action ~action:Accept ~label:"Выключить" () ]
+    [
+      dialog_action ~action:Close ~label:"Отмена" ();
+      dialog_action ~action:Accept ~label:"Выключить" ();
+    ]
   in
   Dialog.make ~title ~actions ()
 
@@ -34,7 +37,8 @@ class t (elt : Dom_html.element Js.t) =
       super#init ()
 
     method! initial_sync_with_dom () : unit =
-      listeners <- Js_of_ocaml_lwt.Lwt_js_events.[clicks action#root self#handle_action];
+      listeners <-
+        Js_of_ocaml_lwt.Lwt_js_events.[ clicks action#root self#handle_action ];
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =
@@ -47,12 +51,10 @@ class t (elt : Dom_html.element Js.t) =
 
     method private handle_action _ _ : unit Lwt.t =
       let rec aux () =
-        warning_dialog#open_await ()
-        >>= function
+        warning_dialog#open_await () >>= function
         | Close | Destroy | Custom _ -> Lwt.return_unit
         | Accept -> (
-            Pc_control_http_js.Power.off ()
-            >>= function
+            Pc_control_http_js.Power.off () >>= function
             | Ok () -> Lwt.return_unit
             | Error (`Msg err) ->
                 let msg =
@@ -62,24 +64,20 @@ class t (elt : Dom_html.element Js.t) =
                 in
                 let (scaffold : Scaffold.t) = Js.Unsafe.global##.scaffold in
                 let snackbar =
-                  Snackbar.make
-                    ~label:(`Text msg)
-                    ~dismiss:`True
-                    ~stacked:true
-                    ~action:(`Text "Повторить")
-                    ()
+                  Snackbar.make ~label:(`Text msg) ~dismiss:`True ~stacked:true
+                    ~action:(`Text "Повторить") ()
                 in
                 scaffold#show_snackbar
                   ~on_close:(fun x ->
                     snackbar#destroy ();
-                    match x with
-                    | Action -> Lwt.async aux
-                    | _ -> ())
-                  snackbar)
+                    match x with Action -> Lwt.async aux | _ -> ())
+                  snackbar )
       in
       aux ()
   end
 
-let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t)
+let attach (elt : #Dom_html.element Js.t) : t =
+  new t (elt :> Dom_html.element Js.t)
 
-let make ?classes ?a () = D.create ?classes ?a () |> Tyxml_js.To_dom.of_element |> attach
+let make ?classes ?a () =
+  D.create ?classes ?a () |> Tyxml_js.To_dom.of_element |> attach

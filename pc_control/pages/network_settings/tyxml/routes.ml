@@ -24,24 +24,26 @@ struct
 
   let create_list routes = list ~children:(List.map create_item routes) ()
 
-  let create ?classes ?(a = []) (v : Pc_control_types.Network_config.ipv4_conf) =
-    let add = button ~classes:[Card.CSS.action] ~label:"Добавить" () in
+  let create ?classes ?(a = []) (v : Pc_control_types.Network_config.ipv4_conf)
+      =
+    let add =
+      button ~classes:[ Card.CSS.action ] ~label:"Добавить" ()
+    in
     let empty =
       Unsafe.coerce_elt
       @@ div
-           ~a:[a_class [Common.CSS.empty_placeholder]]
-           [txt "Статические маршруты не заданы"]
+           ~a:[ a_class [ Common.CSS.empty_placeholder ] ]
+           [ txt "Статические маршруты не заданы" ]
     in
-    Common_markup.create_section
-      ?classes
-      ~a:(a_id id :: a)
+    Common_markup.create_section ?classes ~a:(a_id id :: a)
       ~header:
         (Common_markup.create_section_header
-           ~title:(`Text "Статические маршруты")
-           ())
+           ~title:(`Text "Статические маршруты") ())
       ~children:
-        [ card_media ~children:[create_list v.routes.static; empty] ()
-        ; card_actions ~children:[card_action_buttons ~children:[add] ()] () ]
+        [
+          card_media ~children:[ create_list v.routes.static; empty ] ();
+          card_actions ~children:[ card_action_buttons ~children:[ add ] () ] ();
+        ]
       ()
 end
 

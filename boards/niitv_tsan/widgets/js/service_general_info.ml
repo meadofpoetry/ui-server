@@ -7,9 +7,7 @@ module D = Make (Impl.Xml) (Impl.Svg) (Impl.Html)
 module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
 
 type event =
-  [ `Service of (int * Service.t) option
-  | `Bitrate of Bitrate.ext option
-  ]
+  [ `Service of (int * Service.t) option | `Bitrate of Bitrate.ext option ]
 
 module Attr = struct
   type typ =
@@ -18,8 +16,7 @@ module Attr = struct
     | `PCR_PID
     | `Bitrate_now
     | `Bitrate_min
-    | `Bitrate_max
-    ]
+    | `Bitrate_max ]
 
   let data_elements = "data-elements"
 
@@ -67,7 +64,7 @@ class t (elt : Dom_html.element Js.t) () =
           try
             let pids = String.split_on_char ',' s in
             List.map (fun x -> int_of_string (String.trim x)) pids
-          with _ -> [])
+          with _ -> [] )
 
     method elements : int list = elements
 
@@ -106,10 +103,13 @@ class t (elt : Dom_html.element Js.t) () =
               | Some ((`Bitrate_now | `Bitrate_min | `Bitrate_max) as attr) ->
                   let rate =
                     Util.sum_bitrates
-                      (match attr with
-                      | `Bitrate_now -> Util.cur_bitrate_for_pids bitrate elements
-                      | `Bitrate_min -> Util.min_bitrate_for_pids bitrate elements
-                      | `Bitrate_max -> Util.max_bitrate_for_pids bitrate elements)
+                      ( match attr with
+                      | `Bitrate_now ->
+                          Util.cur_bitrate_for_pids bitrate elements
+                      | `Bitrate_min ->
+                          Util.min_bitrate_for_pids bitrate elements
+                      | `Bitrate_max ->
+                          Util.max_bitrate_for_pids bitrate elements )
                   in
                   let meta = self#get_item_meta item in
                   self#set_meta_bitrate meta rate
@@ -130,15 +130,16 @@ class t (elt : Dom_html.element Js.t) () =
             items
 
     method private set_meta_bitrate meta rate =
-      set_meta_text
-        meta
+      set_meta_text meta
         (Printf.sprintf "%f Мбит/с" (float_of_int rate /. 1_000_000.))
 
     method private set_meta_value meta ((id, info) : int * Service.t) =
       function
       | `Service_id -> set_meta_text meta (Util.pid_to_string ~hex:self#hex id)
-      | `PMT_PID -> set_meta_text meta (Util.pid_to_string ~hex:self#hex info.pmt_pid)
-      | `PCR_PID -> set_meta_text meta (Util.pid_to_string ~hex:self#hex info.pcr_pid)
+      | `PMT_PID ->
+          set_meta_text meta (Util.pid_to_string ~hex:self#hex info.pmt_pid)
+      | `PCR_PID ->
+          set_meta_text meta (Util.pid_to_string ~hex:self#hex info.pcr_pid)
       | `Bitrate_now | `Bitrate_min | `Bitrate_max -> ()
 
     method private set_item_value item typ info =
@@ -149,7 +150,9 @@ class t (elt : Dom_html.element Js.t) () =
       match Element.query_selector item Selector.meta with
       | Some x -> x
       | None ->
-          let meta = Tyxml_js.To_dom.of_element @@ D.create_item_meta ~text:"" () in
+          let meta =
+            Tyxml_js.To_dom.of_element @@ D.create_item_meta ~text:"" ()
+          in
           Dom.appendChild item meta;
           meta
   end

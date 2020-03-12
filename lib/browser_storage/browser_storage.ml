@@ -3,16 +3,14 @@ open Js_of_ocaml
 type key = string
 
 let put storage key json =
-  storage##setItem
-    (Js.string key)
-    (Js.string @@ Yojson.Safe.to_string json)
+  storage##setItem (Js.string key) (Js.string @@ Yojson.Safe.to_string json)
 
 let get storage key =
-  Js.Opt.case (storage##getItem (Js.string key))
+  Js.Opt.case
+    (storage##getItem (Js.string key))
     (fun () -> None)
     (fun item ->
-       try Some (Yojson.Safe.from_string (Js.to_string item))
-       with _ -> None)
+      try Some (Yojson.Safe.from_string (Js.to_string item)) with _ -> None)
 
 let remove storage key = storage##removeItem (Js.string key)
 
@@ -37,9 +35,7 @@ module Local : STORAGE = struct
 
   let put k v = Js.Optdef.iter storage (fun s -> put s k v)
 
-  let get k = Js.Optdef.case storage
-      (fun () -> None)
-      (fun s -> get s k)
+  let get k = Js.Optdef.case storage (fun () -> None) (fun s -> get s k)
 
   let remove k = Js.Optdef.iter storage (fun s -> remove s k)
 
@@ -53,9 +49,7 @@ module Session : STORAGE = struct
 
   let put k v = Js.Optdef.iter storage (fun s -> put s k v)
 
-  let get k = Js.Optdef.case storage
-      (fun () -> None)
-      (fun s -> get s k)
+  let get k = Js.Optdef.case storage (fun () -> None) (fun s -> get s k)
 
   let remove k = Js.Optdef.iter storage (fun s -> remove s k)
 
@@ -82,26 +76,29 @@ module type USER_STORAGE = sig
   val clear : user -> unit
 end
 
-module Make (S : STORAGE) (U : USER) : USER_STORAGE with type user := U.t = struct
+module Make (S : STORAGE) (U : USER) : USER_STORAGE with type user := U.t =
+struct
   let is_available = S.is_available
 
   let put user key data =
     let user = U.to_string user in
-    let upd = match S.get user with
-      | Some `Assoc l -> (key, data) :: l
-      | _ -> [key, data]
+    let upd =
+      match S.get user with
+      | Some (`Assoc l) -> (key, data) :: l
+      | _ -> [ (key, data) ]
     in
     S.put user (`Assoc upd)
 
   let get user key =
     match S.get (U.to_string user) with
-    | Some `Assoc l -> List.assoc_opt key l
+    | Some (`Assoc l) -> List.assoc_opt key l
     | _ -> None
 
   let remove user key =
     let user = U.to_string user in
-    let upd = match S.get user with
-      | Some `Assoc l -> List.remove_assoc key l
+    let upd =
+      match S.get user with
+      | Some (`Assoc l) -> List.remove_assoc key l
       | _ -> []
     in
     S.put user (`Assoc upd)
@@ -110,5 +107,4 @@ module Make (S : STORAGE) (U : USER) : USER_STORAGE with type user := U.t = stru
 end
 
 module Make_session = Make (Session)
-
 module Make_local = Make (Local)

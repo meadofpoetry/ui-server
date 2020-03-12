@@ -1,14 +1,12 @@
 (executable
-  (name       page_mosaic_video)
-  (libraries  js_of_ocaml
-              janus-js
-              components
-              components_lab
-              pipeline_widgets
-              page_mosaic_video_tyxml)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name page_mosaic_video)
+ (libraries js_of_ocaml janus-js components components_lab pipeline_widgets
+   page_mosaic_video_tyxml)
+ (preprocess
+  (pps js_of_ocaml-ppx)))
 
 (install
-  (files (page_mosaic_video.bc.js as js/page-mosaic-video.js))
-  (section share)
-  (package ui-server))
+ (files
+  (page_mosaic_video.bc.js as js/page-mosaic-video.js))
+ (section share)
+ (package ui-server))

@@ -22,7 +22,6 @@ let () =
   let _loader =
     Components_lab.Loader.make_loader
       ~on_success:(fun _ x -> scaffold#set_on_destroy x#finalize)
-      ~elt:scaffold#app_content_inner
-      thread
+      ~elt:scaffold#app_content_inner thread
   in
   ()

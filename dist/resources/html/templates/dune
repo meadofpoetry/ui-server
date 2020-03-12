@@ -1,4 +1,5 @@
 (install
-  (files (base.html as html/templates/base.html))
-  (section share)
-  (package ui-server))
+ (files
+  (base.html as html/templates/base.html))
+ (section share)
+ (package ui-server))

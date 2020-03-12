@@ -7,6 +7,7 @@ let parse bs off =
      |}
     ->
       let node =
-        Node.make ~offset:off 16 "data_broadcast_id" (Hex (Int data_broadcast_id))
+        Node.make ~offset:off 16 "data_broadcast_id"
+          (Hex (Int data_broadcast_id))
       in
       node :: Bytes.parse ~offset:(off + off_1) rest "id_selector_byte"

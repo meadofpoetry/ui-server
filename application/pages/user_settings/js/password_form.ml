@@ -31,15 +31,13 @@ module Validation = struct
   let old_password =
     Password
       (fun x ->
-        match x with
-        | "" -> Error "Введите пароль"
-        | _ -> Ok ())
+        match x with "" -> Error "Введите пароль" | _ -> Ok ())
 
   let new_password =
     Password
       (fun pass ->
-        if String.length pass < 4
-        then Error "Слишком короткий пароль"
+        if String.length pass < 4 then
+          Error "Слишком короткий пароль"
         else Ok ())
 
   let confirm (new_password : string Textfield.t) =
@@ -48,22 +46,17 @@ module Validation = struct
         match new_password#value with
         | None -> Ok ()
         | Some new_ ->
-            if String.equal new_ pass
-            then Ok ()
+            if String.equal new_ pass then Ok ()
             else Error "Пароли не совпадают")
 end
 
-class t
-  ~set_snackbar
-  (user : User.t)
-  (submit_button : Button.t)
+class t ~set_snackbar (user : User.t) (submit_button : Button.t)
   (form : Dom_html.formElement Js.t) =
   let new_password : string Textfield.t =
     match Element.query_selector form Selector.new_password with
     | None -> failwith @@ name ^ ": new password input not found"
     | Some x ->
-        Js.Opt.case
-          (Element.get_parent x)
+        Js.Opt.case (Element.get_parent x)
           (fun () -> failwith @@ name ^ ": new password input parent not found")
           (Textfield.attach ~validation:Validation.new_password)
   in
@@ -71,9 +64,9 @@ class t
     match Element.query_selector form Selector.confirm_password with
     | None -> failwith @@ name ^ ": new confirm password input not found"
     | Some x ->
-        Js.Opt.case
-          (Element.get_parent x)
-          (fun () -> failwith @@ name ^ ": confirm password input parent not found")
+        Js.Opt.case (Element.get_parent x)
+          (fun () ->
+            failwith @@ name ^ ": confirm password input parent not found")
           (Textfield.attach ~validation:(Validation.confirm new_password))
   in
   object (self)
@@ -86,9 +79,9 @@ class t
       match Element.query_selector form Selector.old_password with
       | None -> failwith @@ name ^ ": old password input not found"
       | Some x ->
-          Js.Opt.case
-            (Element.get_parent x)
-            (fun () -> failwith @@ name ^ ": old password input parent not found")
+          Js.Opt.case (Element.get_parent x)
+            (fun () ->
+              failwith @@ name ^ ": old password input parent not found")
             (Textfield.attach ~validation:Validation.old_password)
 
     val submit_input : Dom_html.inputElement Js.t =
@@ -102,17 +95,25 @@ class t
 
     method! initial_sync_with_dom () : unit =
       let invalid ?use_capture ?passive x =
-        Lwt_js_events.make_event ?use_capture ?passive (Dom_html.Event.make "invalid") x
+        Lwt_js_events.make_event ?use_capture ?passive
+          (Dom_html.Event.make "invalid")
+          x
       in
       listeners_ <-
         Lwt_js_events.
-          [ seq_loop invalid old_password#input_element (self#handle_invalid `O)
-          ; seq_loop invalid new_password#input_element (self#handle_invalid `N)
-          ; seq_loop invalid confirm_password#input_element (self#handle_invalid `C)
-          ; inputs new_password#input_element self#handle_new_password_input
-          ; Textfield.Lwt_js_events.icons old_password#root (self#handle_icon `O)
-          ; Textfield.Lwt_js_events.icons new_password#root (self#handle_icon `N)
-          ; Textfield.Lwt_js_events.icons confirm_password#root (self#handle_icon `C) ];
+          [
+            seq_loop invalid old_password#input_element (self#handle_invalid `O);
+            seq_loop invalid new_password#input_element (self#handle_invalid `N);
+            seq_loop invalid confirm_password#input_element
+              (self#handle_invalid `C);
+            inputs new_password#input_element self#handle_new_password_input;
+            Textfield.Lwt_js_events.icons old_password#root
+              (self#handle_icon `O);
+            Textfield.Lwt_js_events.icons new_password#root
+              (self#handle_icon `N);
+            Textfield.Lwt_js_events.icons confirm_password#root
+              (self#handle_icon `C);
+          ];
       form##.onsubmit := Dom.handler self#handle_submit;
       super#initial_sync_with_dom ()
 
@@ -127,11 +128,10 @@ class t
     method set_disabled (x : bool) : unit =
       List.iter
         (fun input ->
-          if x
-          then input#set_attribute Attr.hidden "true"
+          if x then input#set_attribute Attr.hidden "true"
           else input#remove_attribute Attr.hidden;
           input#set_disabled x)
-        [old_password; new_password; confirm_password]
+        [ old_password; new_password; confirm_password ]
 
     method form : Dom_html.formElement Js.t = form
 
@@ -142,15 +142,14 @@ class t
       Dom.preventDefault e;
       let input, update_message =
         match typ with
-        | `O -> old_password, true
-        | `N -> new_password, false
-        | `C -> confirm_password, true
+        | `O -> (old_password, true)
+        | `N -> (new_password, false)
+        | `C -> (confirm_password, true)
       in
       input#set_valid input#valid;
-      (if update_message
-      then
+      ( if update_message then
         let message = input#validation_message in
-        input#set_helper_text_content message);
+        input#set_helper_text_content message );
       Lwt.return_unit
 
     method private handle_new_password_input _ _ : unit Lwt.t =
@@ -167,18 +166,18 @@ class t
       in
       let typ, icon =
         match Js.to_string input#input_element##._type with
-        | "password" -> "text", Some Icon.SVG.Path.eye
-        | "text" -> "password", Some Icon.SVG.Path.eye_off
-        | s -> s, None
+        | "password" -> ("text", Some Icon.SVG.Path.eye)
+        | "text" -> ("password", Some Icon.SVG.Path.eye_off)
+        | s -> (s, None)
       in
-      (match icon with
+      ( match icon with
       | None -> ()
       | Some icon -> (
-        match Element.query_selector target "path" with
-        | None -> ()
-        | Some path ->
-            let (path : Dom_svg.pathElement Js.t) = Js.Unsafe.coerce path in
-            path##setAttribute (Js.string "d") (Js.string icon)));
+          match Element.query_selector target "path" with
+          | None -> ()
+          | Some path ->
+              let (path : Dom_svg.pathElement Js.t) = Js.Unsafe.coerce path in
+              path##setAttribute (Js.string "d") (Js.string icon) ) );
       Element.set_attribute input#input_element "type" typ;
       Lwt.return_unit
 
@@ -188,11 +187,10 @@ class t
       let old_pass = old_password#value in
       let new_pass = new_password#value in
       let thread =
-        match username, old_pass, new_pass with
+        match (username, old_pass, new_pass) with
         | Ok usr, Some old_pass, Some new_pass -> (
-            let pass = {User.user = usr; old_pass; new_pass} in
-            Application_http_js.set_user_password pass
-            >>= function
+            let pass = { User.user = usr; old_pass; new_pass } in
+            Application_http_js.set_user_password pass >>= function
             | Ok () ->
                 if User.equal user usr then Dom_html.window##.location##reload;
                 Lwt.return_ok ()
@@ -201,24 +199,21 @@ class t
                 old_password#set_use_native_validation false;
                 old_password#set_valid false;
                 old_password#set_use_native_validation true;
-                Lwt.return_error e)
+                Lwt.return_error e )
         | _ -> Lwt.return_ok ()
       in
       submit_button#set_loading_lwt thread;
       Lwt.async (fun () ->
-          thread
-          >>= fun x ->
+          thread >>= fun x ->
           let label =
             match x with
             | Ok () -> "Пароль успешно изменен"
             | Error (`Msg msg) ->
                 Printf.sprintf
-                  "Не удалось изменить пароль. %s"
-                  msg
+                  "Не удалось изменить пароль. %s" msg
           in
           let snackbar = Snackbar.make ~label:(`Text label) () in
-          set_snackbar snackbar
-          >>= fun _ ->
+          set_snackbar snackbar >>= fun _ ->
           snackbar#destroy ();
           Lwt.return_unit);
       Js._false

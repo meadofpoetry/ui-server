@@ -12,40 +12,53 @@ struct
   open Button.Make (Xml) (Svg) (Html)
 
   let create ?classes ?(a = []) () =
-    create_section
-      ?classes
+    create_section ?classes
       ~a:(Html.a_id "shutdown" :: a)
       ~header:
-        (create_section_header ~title:(`Text "Выключение питания") ())
+        (create_section_header
+           ~title:(`Text "Выключение питания") ())
       ~children:
-        [ Card_markup.card_media
+        [
+          Card_markup.card_media
             ~children:
-              [ div
-                  [ txt
+              [
+                div
+                  [
+                    txt
                       "Нажмите эту кнопку, чтобы \
-                       выключить прибор." ]
-              ; div
-                  [ span
-                      [ strong [txt "Внимание! "]
-                      ; txt
-                          "Выключение приведет к потере \
-                           связи с прибором. Дальнейшая \
-                           работа с прибором будет возможна \
-                           только после его включения путём \
-                           нажатия кнопки на лицевой панели."
-                      ] ] ]
-            ()
-        ; hr ~a:[a_class [Divider.CSS.root]] ()
-        ; Card_markup.card_actions
+                       выключить прибор.";
+                  ];
+                div
+                  [
+                    span
+                      [
+                        strong [ txt "Внимание! " ];
+                        txt
+                          "Выключение приведет к \
+                           потере связи с прибором. \
+                           Дальнейшая работа с \
+                           прибором будет возможна \
+                           только после его включения \
+                           путём нажатия кнопки на \
+                           лицевой панели.";
+                      ];
+                  ];
+              ]
+            ();
+          hr ~a:[ a_class [ Divider.CSS.root ] ] ();
+          Card_markup.card_actions
             ~children:
-              [ Card_markup.card_action_buttons
+              [
+                Card_markup.card_action_buttons
                   ~children:
-                    [ button
-                        ~appearance:Raised
-                        ~label:"Выключить прибор"
-                        () ]
-                  () ]
-            () ]
+                    [
+                      button ~appearance:Raised
+                        ~label:"Выключить прибор" ();
+                    ]
+                  ();
+              ]
+            ();
+        ]
       ()
 end
 

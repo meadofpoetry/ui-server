@@ -1,20 +1,13 @@
 (executable
-  (name       page_topology)
-  (libraries  components
-              resize_observer
-              util_react
-              application_http_js
-              pipeline_http_js
-              pipeline_widgets
-              board_dektec_dtm3200_widgets_js
-              board_niitv_dvb4ch_widgets
-              board_niitv_tsan_widgets)
-  (preprocess (pps js_of_ocaml-ppx
-                   ppx_deriving_yojson
-                   ppx_deriving.eq
-                   ppx_deriving.show)))
+ (name page_topology)
+ (libraries components resize_observer util_react application_http_js
+   pipeline_http_js pipeline_widgets board_dektec_dtm3200_widgets_js
+   board_niitv_dvb4ch_widgets board_niitv_tsan_widgets)
+ (preprocess
+  (pps js_of_ocaml-ppx ppx_deriving_yojson ppx_deriving.eq ppx_deriving.show)))
 
 (install
-  (files (page_topology.bc.js as js/page-topology.js))
-  (section share)
-  (package ui-server))
+ (files
+  (page_topology.bc.js as js/page-topology.js))
+ (section share)
+ (package ui-server))

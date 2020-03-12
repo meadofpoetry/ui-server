@@ -1,8 +1,7 @@
 open Table_common
 
 let rec parse_streams off x =
-  if Bitstring.bitstring_length x = 0
-  then []
+  if Bitstring.bitstring_length x = 0 then []
   else
     match%bitstring x with
     | {| stream_type    : 8
@@ -16,12 +15,16 @@ let rec parse_streams off x =
       ->
         let dscrs = parse_descriptors (off + off_5) descriptors in
         let nodes =
-          [ Node.make ~offset:off 8 "stream_type" (Hex (Int stream_type))
-          ; Node.make ~offset:(off_1 + off) 3 "reserved" (Bits (Int reserved_1))
-          ; Node.make ~offset:(off_2 + off) 13 "elementary_PID" (Hex (Int pid))
-          ; Node.make ~offset:(off_3 + off) 4 "reserved" (Bits (Int reserved_2))
-          ; Node.make ~offset:(off_4 + off) 12 "ES_info_length" (Hex (Int length))
-          ; Node.make ~offset:(off_5 + off) (length * 8) "descriptors" (List dscrs) ]
+          [
+            Node.make ~offset:off 8 "stream_type" (Hex (Int stream_type));
+            Node.make ~offset:(off_1 + off) 3 "reserved" (Bits (Int reserved_1));
+            Node.make ~offset:(off_2 + off) 13 "elementary_PID" (Hex (Int pid));
+            Node.make ~offset:(off_3 + off) 4 "reserved" (Bits (Int reserved_2));
+            Node.make ~offset:(off_4 + off) 12 "ES_info_length"
+              (Hex (Int length));
+            Node.make ~offset:(off_5 + off) (length * 8) "descriptors"
+              (List dscrs);
+          ]
         in
         let stream_name = Printf.sprintf "stream %d" pid in
         let node =
@@ -54,22 +57,24 @@ let parse bs =
       let header = parse_header header in
       let streams = parse_streams off_12 streams in
       let nodes =
-        [ Node.make ~offset:off_1 16 "program_number" (Dec (Int program_number))
-        ; Node.make ~offset:off_2 2 "reserved" (Bits (Int reserved_1))
-        ; Node.make ~offset:off_3 5 "version_number" (Dec (Int version_number))
-        ; Node.make
-            ~offset:off_4
-            1
-            "current_next_indicator"
-            (Bits (Bool current_next_ind))
-        ; Node.make ~offset:off_5 8 "section_number" (Dec (Int section_number))
-        ; Node.make ~offset:off_6 8 "last_section_number" (Dec (Int last_section_num))
-        ; Node.make ~offset:off_7 3 "reserved" (Bits (Int reserved_2))
-        ; Node.make ~offset:off_8 13 "PCR_PID" (Bits (Int pcr_pid))
-        ; Node.make ~offset:off_9 4 "reserved" (Bits (Int reserved_3))
-        ; Node.make ~offset:off_10 12 "program_info_length" (Dec (Int length))
-        ; Node.make ~offset:off_11 (length * 8) "descriptors" (List dscrs)
-        ; Node.make ~offset:off_12 (streams_len length off_11) "streams" (List streams)
-        ; Node.make ~offset:off_13 32 "CRC_32" (Hex (Uint32 crc32)) ]
+        [
+          Node.make ~offset:off_1 16 "program_number" (Dec (Int program_number));
+          Node.make ~offset:off_2 2 "reserved" (Bits (Int reserved_1));
+          Node.make ~offset:off_3 5 "version_number" (Dec (Int version_number));
+          Node.make ~offset:off_4 1 "current_next_indicator"
+            (Bits (Bool current_next_ind));
+          Node.make ~offset:off_5 8 "section_number" (Dec (Int section_number));
+          Node.make ~offset:off_6 8 "last_section_number"
+            (Dec (Int last_section_num));
+          Node.make ~offset:off_7 3 "reserved" (Bits (Int reserved_2));
+          Node.make ~offset:off_8 13 "PCR_PID" (Bits (Int pcr_pid));
+          Node.make ~offset:off_9 4 "reserved" (Bits (Int reserved_3));
+          Node.make ~offset:off_10 12 "program_info_length" (Dec (Int length));
+          Node.make ~offset:off_11 (length * 8) "descriptors" (List dscrs);
+          Node.make ~offset:off_12
+            (streams_len length off_11)
+            "streams" (List streams);
+          Node.make ~offset:off_13 32 "CRC_32" (Hex (Uint32 crc32));
+        ]
       in
       header @ nodes

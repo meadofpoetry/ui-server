@@ -14,14 +14,11 @@ let parse bs off =
         | Ok s -> s
         | Error _ -> "Unable to decode"
       in
-      [ Node.make ~offset:off 16 "CA_system_ID" (Dec (Int ca_system_id))
-      ; Node.make
-          ~offset:(off + off_1)
-          16
-          "ECM repetition rate"
-          (Dec (Int ecm_repetition_rate))
-      ; Node.make
-          ~offset:(off + off_2)
+      [
+        Node.make ~offset:off 16 "CA_system_ID" (Dec (Int ca_system_id));
+        Node.make ~offset:(off + off_1) 16 "ECM repetition rate"
+          (Dec (Int ecm_repetition_rate));
+        Node.make ~offset:(off + off_2)
           (Bitstring.bitstring_length rest)
-          "private_data"
-          (String private_data) ]
+          "private_data" (String private_data);
+      ]

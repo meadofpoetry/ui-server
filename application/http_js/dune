@@ -1,7 +1,5 @@
 (library
-  (name       application_http_js)
-  (libraries  api_js
-              application_types
-              netlib
-              time_uri)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name application_http_js)
+ (libraries api_js application_types netlib time_uri)
+ (preprocess
+  (pps js_of_ocaml-ppx)))

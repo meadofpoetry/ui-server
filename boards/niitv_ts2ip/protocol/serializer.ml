@@ -18,7 +18,7 @@ let to_prefix (msg : Request.msg) =
 
 (* FIXME remove after board protocol update *)
 let flip_int16 (x : int) =
-  let msb, lsb = (x land 0xFF00) lsr 8, x land 0x00FF in
+  let msb, lsb = ((x land 0xFF00) lsr 8, x land 0x00FF) in
   (lsb lsl 8) lor msb
 
 (* FIXME remove after board protocol update *)
@@ -33,7 +33,7 @@ let serialize_udp_mode (mode : udp_mode) =
     @@
     match mode.stream with
     | ID x -> x
-    | Full {orig_id = TS_multi x; _} -> x
+    | Full { orig_id = TS_multi x; _ } -> x
     | Full _ -> Stream.Multi_TS_ID.forbidden
   in
   let mac = Netlib.Ipaddr.V4.multicast_to_mac mode.dst_ip in
@@ -53,7 +53,9 @@ let serialize_mode_main (mode : mode) =
   let pfx = Cstruct.create Message.sizeof_req_mode_main_prefix in
   let sfx = Cstruct.create Message.sizeof_req_mode_main_suffix in
   let bdy =
-    Cstruct.concat @@ List.map serialize_udp_mode @@ take Message.n_udp_main mode.udp
+    Cstruct.concat
+    @@ List.map serialize_udp_mode
+    @@ take Message.n_udp_main mode.udp
   in
   let pad =
     Cstruct.create
@@ -61,14 +63,16 @@ let serialize_mode_main (mode : mode) =
   in
   Message.set_req_mode_main_prefix_cmd pfx 0;
   Ipaddr.(
-    Message.set_req_mode_main_prefix_ip pfx @@ V4.to_int32 @@ flip_ipaddr mode.network.ip;
+    Message.set_req_mode_main_prefix_ip pfx
+    @@ V4.to_int32
+    @@ flip_ipaddr mode.network.ip;
     Message.set_req_mode_main_prefix_mask pfx
     @@ V4.to_int32
     @@ flip_ipaddr mode.network.mask;
     Message.set_req_mode_main_prefix_gateway pfx
     @@ V4.to_int32
     @@ flip_ipaddr mode.network.gateway);
-  Cstruct.concat [pfx; bdy; pad; sfx]
+  Cstruct.concat [ pfx; bdy; pad; sfx ]
 
 let serialize_mode_aux (i : int) (pkrs : udp_mode list) =
   let pfx = Cstruct.create Message.sizeof_req_mode_aux_prefix in
@@ -81,7 +85,7 @@ let serialize_mode_aux (i : int) (pkrs : udp_mode list) =
     @@ ((Message.n_udp_aux * Message.sizeof_udp_settings) - Cstruct.len bdy)
   in
   Message.set_req_mode_aux_prefix_cmd pfx i;
-  Cstruct.concat [pfx; bdy; pad; sfx]
+  Cstruct.concat [ pfx; bdy; pad; sfx ]
 
 let to_msg (type a) (t : a Request.t) : Request.msg =
   let tag = Request.to_tag t in
@@ -97,9 +101,9 @@ let to_msg (type a) (t : a Request.t) : Request.msg =
     | Set_mode_aux_1 pkrs -> serialize_mode_aux 1 pkrs
     | Set_mode_aux_2 pkrs -> serialize_mode_aux 2 pkrs
   in
-  {tag; data}
+  { tag; data }
 
 let serialize (type a) (request : a Request.t) : Cstruct.t =
   let msg = to_msg request in
   let pfx = to_prefix msg in
-  Cstruct.concat [pfx; msg.data]
+  Cstruct.concat [ pfx; msg.data ]

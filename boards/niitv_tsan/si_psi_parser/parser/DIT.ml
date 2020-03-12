@@ -9,8 +9,11 @@ let parse =
      |}
     when Bitstring.bitstring_length rest = 0 ->
       let nodes =
-        [ Node.make ~offset:off_1 1 "transition_flag" (Bits (Bool transition_flag))
-        ; Node.make ~offset:off_2 7 "reserved_future_use" (Bits (Int rfu)) ]
+        [
+          Node.make ~offset:off_1 1 "transition_flag"
+            (Bits (Bool transition_flag));
+          Node.make ~offset:off_2 7 "reserved_future_use" (Bits (Int rfu));
+        ]
       in
       let header = parse_header header in
       header @ nodes

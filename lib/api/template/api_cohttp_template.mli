@@ -1,6 +1,6 @@
-
 module type USER = sig
   include Api.USER
+
   val to_string : t -> string
 end
 

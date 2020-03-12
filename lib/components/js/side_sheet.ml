@@ -8,12 +8,10 @@ let ( >>= ) = Lwt.bind
 
 let ( % ) f g x = f (g x)
 
-type slide =
-  [ `Leading
-  | `Trailing ]
+type slide = [ `Leading | `Trailing ]
 
 let equal_slide (a : slide) (b : slide) : bool =
-  match a, b with
+  match (a, b) with
   | `Leading, `Leading | `Trailing, `Trailing -> true
   | _, _ -> false
 
@@ -37,12 +35,14 @@ module Make_parent (M : M) = struct
   module Lwt_js_events = struct
     open Js_of_ocaml_lwt.Lwt_js_events
 
-    let open_ ?use_capture ?passive t = make_event ?use_capture ?passive Event.open_ t
+    let open_ ?use_capture ?passive t =
+      make_event ?use_capture ?passive Event.open_ t
 
     let opens ?cancel_handler ?use_capture ?passive t =
       seq_loop ?cancel_handler ?use_capture ?passive open_ t
 
-    let close ?use_capture ?passive t = make_event ?use_capture ?passive Event.close t
+    let close ?use_capture ?passive t =
+      make_event ?use_capture ?passive Event.close t
 
     let closes ?cancel_handler ?use_capture ?passive t =
       seq_loop ?cancel_handler ?use_capture ?passive close t
@@ -64,16 +64,14 @@ module Make_parent (M : M) = struct
 
       method! init () : unit =
         let typ =
-          if self#modal
-          then Modal
-          else if self#dismissible
-          then Dismissible
+          if self#modal then Modal
+          else if self#dismissible then Dismissible
           else Permanent
         in
-        (match typ with
+        ( match typ with
         | Modal -> self#set_modal ()
         | Permanent -> self#set_permanent ()
-        | Dismissible -> self#set_dismissible ());
+        | Dismissible -> self#set_dismissible () );
         super#init ()
 
       method! destroy () : unit =
@@ -126,43 +124,39 @@ module Make_parent (M : M) = struct
           match scrim with
           | Some x -> Some x
           | None -> (
-            match Js.Opt.to_option @@ Element.get_parent elt with
-            | None -> None
-            | Some p -> Element.query_selector p ("." ^ M.scrim))
+              match Js.Opt.to_option @@ Element.get_parent elt with
+              | None -> None
+              | Some p -> Element.query_selector p ("." ^ M.scrim) )
         in
         (* Attach event listeners *)
         Js_of_ocaml_lwt.Lwt_js_events.(
           keydown_listener <- Some (keydowns super#root self#handle_keydown);
           Option.iter
             (fun scrim ->
-              scrim_click_listener <- Some (clicks scrim self#handle_scrim_click))
+              scrim_click_listener <-
+                Some (clicks scrim self#handle_scrim_click))
             scrim)
 
       method is_open : bool = super#has_class M.open_
       (** Returns [true] if drawer is in open state *)
 
       method toggle ?(force : bool option) () : unit Lwt.t =
-        let v =
-          match force with
-          | None -> not self#is_open
-          | Some x -> x
-        in
-        if not self#permanent
-        then if v then self#show () else self#hide ()
+        let v = match force with None -> not self#is_open | Some x -> x in
+        if not self#permanent then if v then self#show () else self#hide ()
         else Lwt.return_unit
       (** Toggles the drawer open and closed *)
 
       (* Private methods *)
       method private show () : unit Lwt.t =
-        if (not self#permanent)
-           && (not self#is_open)
-           && (not self#is_opening)
-           && not self#is_closing
+        if
+          (not self#permanent)
+          && (not self#is_open)
+          && (not self#is_opening)
+          && not self#is_closing
         then (
           super#add_class M.open_;
           self#save_focus ();
-          if not quick_open
-          then (
+          if not quick_open then (
             super#add_class M.animate;
             Option.iter Lwt.cancel animation_thread;
             Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
@@ -177,22 +171,21 @@ module Make_parent (M : M) = struct
                       super#root
                       (self#handle_transition_end ~closing:false % Option.some)))
                 (function
-                  | Lwt.Canceled -> Lwt.return_unit
-                  | exn -> Lwt.fail exn)
+                  | Lwt.Canceled -> Lwt.return_unit | exn -> Lwt.fail exn)
             in
             super#add_class M.opening;
-            waiter)
-          else self#handle_transition_end ~closing:false None Lwt.return_unit)
+            waiter )
+          else self#handle_transition_end ~closing:false None Lwt.return_unit )
         else Lwt.return_unit
 
       method private hide () : unit Lwt.t =
-        if (not self#permanent)
-           && self#is_open
-           && (not self#is_opening)
-           && not self#is_closing
+        if
+          (not self#permanent)
+          && self#is_open
+          && (not self#is_opening)
+          && not self#is_closing
         then
-          if not quick_open
-          then (
+          if not quick_open then (
             let waiter =
               Lwt.catch
                 (fun () ->
@@ -202,17 +195,18 @@ module Make_parent (M : M) = struct
                       super#root
                       (self#handle_transition_end ~closing:true % Option.some)))
                 (function
-                  | Lwt.Canceled -> Lwt.return_unit
-                  | exn -> Lwt.fail exn)
+                  | Lwt.Canceled -> Lwt.return_unit | exn -> Lwt.fail exn)
             in
             super#add_class M.closing;
-            waiter)
+            waiter )
           else self#handle_transition_end ~closing:true None Lwt.return_unit
         else Lwt.return_unit
 
-      method private notify_open () : unit = super#emit ~should_bubble:true Event.open_
+      method private notify_open () : unit =
+        super#emit ~should_bubble:true Event.open_
 
-      method private notify_close () : unit = super#emit ~should_bubble:true Event.close
+      method private notify_close () : unit =
+        super#emit ~should_bubble:true Event.close
 
       method private handle_scrim_click _ _ : unit Lwt.t = self#hide ()
 
@@ -223,7 +217,8 @@ module Make_parent (M : M) = struct
         match previous_focus with
         | None -> ()
         | Some elt ->
-            if Js.to_bool @@ (Js.Unsafe.coerce self#root)##contains elt then elt##focus
+            if Js.to_bool @@ (Js.Unsafe.coerce self#root)##contains elt then
+              elt##focus
 
       method private focus_active_navigation_item () : unit =
         (* TODO improve query *)
@@ -237,39 +232,32 @@ module Make_parent (M : M) = struct
       method private is_closing : bool = super#has_class M.closing
       (** Returns [true] if drawer is animating closed *)
 
-      method private handle_keydown
-          (e : Dom_html.keyboardEvent Js.t)
-          (_ : unit Lwt.t)
-          : unit Lwt.t =
+      method private handle_keydown (e : Dom_html.keyboardEvent Js.t)
+          (_ : unit Lwt.t) : unit Lwt.t =
         match Dom_html.Keyboard_code.of_event e with
         | Escape -> self#hide ()
         | _ -> Lwt.return_unit
 
-      method private handle_transition_end
-          ~closing
-          (e : #Dom_html.event Js.t option)
-          (t : unit Lwt.t)
-          : unit Lwt.t =
+      method private handle_transition_end ~closing
+          (e : #Dom_html.event Js.t option) (t : unit Lwt.t) : unit Lwt.t =
         let is_root =
           match e with
           | None -> true
           | Some e -> Element.has_class (Dom.eventTarget e) M.root
         in
         try
-          if is_root
-          then (
-            if closing
-            then (
+          if is_root then (
+            if closing then (
               super#remove_class M.open_;
               self#restore_focus ();
-              self#notify_close ())
+              self#notify_close () )
             else (
               self#focus_active_navigation_item ();
-              self#notify_open ());
+              self#notify_open () );
             super#remove_class M.animate;
             super#remove_class M.opening;
             super#remove_class M.closing;
-            Lwt.cancel t);
+            Lwt.cancel t );
           Lwt.return_unit
         with Not_found -> Lwt.return_unit
 

@@ -11,9 +11,7 @@ module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
-type animation =
-  { final_scroll_position : int
-  ; scroll_delta : int }
+type animation = { final_scroll_position : int; scroll_delta : int }
 
 let compute_horizontal_scroll_height () : int option =
   let el = Dom_html.(createDiv document) in
@@ -49,8 +47,8 @@ class t (elt : Dom_html.element Js.t) () =
 
     method! init () : unit =
       (* Compute horizontal scrollbar height on scroller with overflow initially hidden,
-       then update overflow to scroll and immediately adjust bottom margin to avoid
-         the scrollbar initially appearing before JS runs *)
+         then update overflow to scroll and immediately adjust bottom margin to avoid
+           the scrollbar initially appearing before JS runs *)
       let margin_bottom =
         match compute_horizontal_scroll_height () with
         | Some x -> Js.string (Printf.sprintf "-%dpx" x)
@@ -72,20 +70,19 @@ class t (elt : Dom_html.element Js.t) () =
       in
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          [ touchstarts ~passive:true super#root handle_interaction
+          [
+            touchstarts ~passive:true super#root handle_interaction
             (* FIXME return when jsoo pointer events PR accepted *)
-            (* ; pointerdowns super#root handle_interaction *)
-          ; mousedowns super#root handle_interaction
-          ; keydowns super#root handle_interaction
-          ; seq_loop
-              ~passive:true
+            (* ; pointerdowns super#root handle_interaction *);
+            mousedowns super#root handle_interaction;
+            keydowns super#root handle_interaction;
+            seq_loop ~passive:true
               (make_event @@ Dom_html.Event.make "wheel")
-              super#root
-              handle_interaction
-          ; seq_loop
+              super#root handle_interaction;
+            seq_loop
               (make_event @@ Dom_html.Event.make "transitionend")
-              super#root
-              handle_transitionend ]
+              super#root handle_transitionend;
+          ]
           @ listeners);
       super#initial_sync_with_dom ()
 
@@ -130,12 +127,9 @@ class t (elt : Dom_html.element Js.t) () =
           previous#set_active false
 
     method align : align option =
-      if super#has_class CSS.align_start
-      then Some Start
-      else if super#has_class CSS.align_end
-      then Some End
-      else if super#has_class CSS.align_center
-      then Some Center
+      if super#has_class CSS.align_start then Some Start
+      else if super#has_class CSS.align_end then Some End
+      else if super#has_class CSS.align_center then Some Center
       else None
 
     method set_align (x : align option) : unit =
@@ -161,7 +155,7 @@ class t (elt : Dom_html.element Js.t) () =
       let current_scroll_x = self#get_scroll_position () in
       let safe_scroll_x = self#clamp_scroll_value scroll_x in
       let scroll_delta = safe_scroll_x - current_scroll_x in
-      self#animate {scroll_delta; final_scroll_position = safe_scroll_x}
+      self#animate { scroll_delta; final_scroll_position = safe_scroll_x }
 
     (* Increment scroll value by the given value *)
     method increment_scroll (scroll_x : int) : unit Lwt.t =
@@ -172,7 +166,7 @@ class t (elt : Dom_html.element Js.t) () =
           let target_scroll_x = x + current_scroll_x in
           let safe_scroll_x = self#clamp_scroll_value target_scroll_x in
           let scroll_delta = safe_scroll_x - current_scroll_x in
-          self#animate {scroll_delta; final_scroll_position = safe_scroll_x}
+          self#animate { scroll_delta; final_scroll_position = safe_scroll_x }
 
     (* Handles interaction events that occur during transition *)
     method private handle_interaction () : unit =
@@ -181,16 +175,15 @@ class t (elt : Dom_html.element Js.t) () =
     (* Handles transitionend event *)
     method private handle_transition_end e : unit =
       Js.Opt.iter e##.target (fun (target : Dom_html.element Js.t) ->
-          if animating && Element.matches target ("." ^ CSS.scroll_content)
-          then (
+          if animating && Element.matches target ("." ^ CSS.scroll_content) then (
             animating <- false;
-            super#remove_class CSS.animating))
+            super#remove_class CSS.animating ))
 
     method private calculate_scroll_edges () : int * int =
       let content_width = scroll_content##.offsetWidth in
       let root_width = scroll_area##.offsetWidth in
       (* left, right *)
-      0, content_width - root_width
+      (0, content_width - root_width)
 
     (* Calculates a safe scroll value that is > 0 and < the max scroll value
      * v - the distance to scroll
@@ -205,12 +198,12 @@ class t (elt : Dom_html.element Js.t) () =
       match value with
       | "none" -> 0
       | value -> (
-        try
-          int_of_float
-          @@ float_of_string
-          @@ String.trim
-          @@ List.nth (String.split_on_char ',' value) 4
-        with _ -> 0)
+          try
+            int_of_float
+            @@ float_of_string
+            @@ String.trim
+            @@ List.nth (String.split_on_char ',' value) 4
+          with _ -> 0 )
 
     (* Gets the current scroll position during animation *)
     method private get_animating_scroll_position () : int =
@@ -230,8 +223,7 @@ class t (elt : Dom_html.element Js.t) () =
     method private animate (a : animation) : unit Lwt.t =
       (* Early exit if translateX is 0, which means
        * there is no animation to perform *)
-      if a.scroll_delta = 0
-      then Lwt.return_unit
+      if a.scroll_delta = 0 then Lwt.return_unit
       else (
         self#stop_scroll_animation ();
         scroll_area##.scrollLeft := a.final_scroll_position;
@@ -240,11 +232,10 @@ class t (elt : Dom_html.element Js.t) () =
         (* Force repaint *)
         ignore @@ scroll_area##getBoundingClientRect;
         animating <- true;
-        Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame ()
-        >>= fun () ->
+        Js_of_ocaml_lwt.Lwt_js_events.request_animation_frame () >>= fun () ->
         super#add_class CSS.animating;
         scroll_content##.style##.transform := Js.string "none";
-        Lwt.return_unit)
+        Lwt.return_unit )
   end
 
 let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()

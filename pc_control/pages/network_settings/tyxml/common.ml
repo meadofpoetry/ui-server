@@ -23,13 +23,13 @@ struct
 
   let create_remove_button () =
     Icon_button_markup.icon_button
-      ~classes:[Item_list.CSS.item_meta]
+      ~classes:[ Item_list.CSS.item_meta ]
       ~icon:(Icon_markup.SVG.icon ~d:Svg_icons.delete ())
       ()
 
   let create_textfield ?value ~label ~id () : 'a elt =
     let input_id = id ^ "-input" in
-    Textfield_markup.textfield ?value ~a:[a_id id] ~input_id ~label ()
+    Textfield_markup.textfield ?value ~a:[ a_id id ] ~input_id ~label ()
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

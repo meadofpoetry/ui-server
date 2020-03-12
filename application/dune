@@ -1,22 +1,9 @@
 (library
-  (name        application)
-  (wrapped     false)
-  (synopsis    "app")
-  (libraries   application_types
-               boards
-               board_niitv_dvb4ch
-               board_niitv_tsan
-               board_niitv_ts2ip
-               board_dektec_dtm3200
-               pipeline
-               pc_control
-               util_react
-               kv_v
-               db
-               cyusb
-               api_cohttp_template
-               nocrypto.lwt
-               pbkdf
-               hex
-               caqti-lwt)
-  (preprocess (pps ppx_cstruct ppx_deriving_yojson ppx_deriving.eq)))
+ (name application)
+ (wrapped false)
+ (synopsis "app")
+ (libraries application_types boards board_niitv_dvb4ch board_niitv_tsan
+   board_niitv_ts2ip board_dektec_dtm3200 pipeline pc_control util_react kv_v
+   db cyusb api_cohttp_template nocrypto.lwt pbkdf hex caqti-lwt)
+ (preprocess
+  (pps ppx_cstruct ppx_deriving_yojson ppx_deriving.eq)))

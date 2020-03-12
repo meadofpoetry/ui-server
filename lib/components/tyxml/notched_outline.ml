@@ -33,49 +33,41 @@ struct
 
   let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let notched_outline_leading ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+  let notched_outline_leading ?(classes = return []) ?(a = [])
+      ?(children = nil ()) () =
     let classes = fmap (List.cons CSS.leading) classes in
     div ~a:(a_class classes :: a) children
 
-  let notched_outline_trailing ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+  let notched_outline_trailing ?(classes = return []) ?(a = [])
+      ?(children = nil ()) () =
     let classes = fmap (List.cons CSS.trailing) classes in
     div ~a:(a_class classes :: a) children
 
-  let notched_outline_notch
-      ?(classes = return [])
-      ?(a = [])
-      ?label_for
-      ?label
-      ?(children = nil ())
-      () =
+  let notched_outline_notch ?(classes = return []) ?(a = []) ?label_for ?label
+      ?(children = nil ()) () =
     let children =
       match label with
       | None -> children
       | Some x ->
-          let label = Floating_label_markup.floating_label ?for_:label_for ~label:x () in
+          let label =
+            Floating_label_markup.floating_label ?for_:label_for ~label:x ()
+          in
           cons (return label) children
     in
     let classes = fmap (List.cons CSS.notch) classes in
     div ~a:(a_class classes :: a) children
 
-  let notched_outline
-      ?(classes = return [])
-      ?(a = [])
-      ?leading
-      ?trailing
-      ?notch
-      ?label_for
-      ?label
-      ?children
-      () =
+  let notched_outline ?(classes = return []) ?(a = []) ?leading ?trailing ?notch
+      ?label_for ?label ?children () =
     let classes = fmap (List.cons CSS.root) classes in
     let notch =
       match notch with
       | Some _ as x -> x
       | None -> (
-        match label with
-        | None -> None
-        | Some label -> Some (return @@ notched_outline_notch ?label_for ~label ()))
+          match label with
+          | None -> None
+          | Some label ->
+              Some (return @@ notched_outline_notch ?label_for ~label ()) )
     in
     let children =
       match children with

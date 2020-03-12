@@ -25,15 +25,17 @@ class t ?on_change (elt : Dom_html.element Js.t) () =
       super#init ()
 
     method! initial_sync_with_dom () : unit =
-      (match on_change with
+      ( match on_change with
       | None -> ()
       | Some _ ->
           listeners <-
             Js_of_ocaml_lwt.Lwt_js_events.(
-              [ changes input_elt (fun _ _ ->
+              [
+                changes input_elt (fun _ _ ->
                     self#notify_change ();
-                    Lwt.return_unit) ]
-              @ listeners));
+                    Lwt.return_unit);
+              ]
+              @ listeners) );
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
@@ -62,11 +64,7 @@ class t ?on_change (elt : Dom_html.element Js.t) () =
     method checked : bool = Js.to_bool input_elt##.checked
 
     method toggle ?(notify = false) ?(force : bool option) () : unit =
-      let v =
-        match force with
-        | None -> not self#checked
-        | Some x -> x
-      in
+      let v = match force with None -> not self#checked | Some x -> x in
       input_elt##.checked := Js.bool v;
       if notify then self#notify_change ()
 
@@ -83,10 +81,12 @@ class t ?on_change (elt : Dom_html.element Js.t) () =
       let is_unbounded () = true in
       let is_surface_active () = false in
       let adapter =
-        { adapter with
-          event_target = Element.coerce input_elt
-        ; is_unbounded
-        ; is_surface_active }
+        {
+          adapter with
+          event_target = Element.coerce input_elt;
+          is_unbounded;
+          is_surface_active;
+        }
       in
       new Ripple.t adapter ()
   end
@@ -94,32 +94,9 @@ class t ?on_change (elt : Dom_html.element Js.t) () =
 let attach ?on_change (elt : #Dom_html.element Js.t) : t =
   new t ?on_change (Element.coerce elt) ()
 
-let make
-    ?classes
-    ?a
-    ?input_id
-    ?checked
-    ?disabled
-    ?name
-    ?outer_circle
-    ?inner_circle
-    ?background
-    ?native_control
-    ?children
-    ?on_change
-    () =
-  D.radio
-    ?classes
-    ?a
-    ?input_id
-    ?checked
-    ?disabled
-    ?name
-    ?outer_circle
-    ?inner_circle
-    ?background
-    ?native_control
-    ?children
-    ()
+let make ?classes ?a ?input_id ?checked ?disabled ?name ?outer_circle
+    ?inner_circle ?background ?native_control ?children ?on_change () =
+  D.radio ?classes ?a ?input_id ?checked ?disabled ?name ?outer_circle
+    ?inner_circle ?background ?native_control ?children ()
   |> Tyxml_js.To_dom.of_element
   |> attach ?on_change

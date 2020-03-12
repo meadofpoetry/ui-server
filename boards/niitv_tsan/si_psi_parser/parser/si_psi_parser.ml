@@ -34,5 +34,5 @@ let parse_exn (buf : string) : Node.t list =
       in
       Table.parse bs
 
-let parse (buf : string) : (Node.t list, [`Msg of string]) result =
+let parse (buf : string) : (Node.t list, [ `Msg of string ]) result =
   try Ok (parse_exn buf) with exn -> Error (`Msg (Printexc.to_string exn))

@@ -1,3 +1,1 @@
-type _ t =
-  | [] : unit t
-  | ( :: ) : 'a * 'b t -> ('a * 'b) t
+type _ t = [] : unit t | ( :: ) : 'a * 'b t -> ('a * 'b) t

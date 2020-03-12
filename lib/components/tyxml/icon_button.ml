@@ -9,8 +9,8 @@ module CSS = struct
       icon button toggle is in the "on" state. *)
   let on = BEM.add_modifier root "on"
 
-  (** This class is applied to a icon element and is used to indicate
-      the toggle button icon that represents the "on" icon. *)
+  (** This class is applied to a icon element and is used to indicate the toggle
+      button icon that represents the "on" icon. *)
   let icon_on = BEM.add_modifier icon "on"
 end
 
@@ -28,40 +28,27 @@ struct
 
   let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let icon_button
-      ?(classes = return [])
-      ?(a = [])
-      ?on_click
-      ?(ripple = true)
-      ?(on = false)
-      ?(disabled = false)
-      ?on_icon
-      ~icon
-      () =
+  let icon_button ?(classes = return []) ?(a = []) ?on_click ?(ripple = true)
+      ?(on = false) ?(disabled = false) ?on_icon ~icon () =
     let classes = fmap (Utils.cons_if on CSS.on % List.cons CSS.root) classes in
     button
       ~a:
-        (a_class classes :: a
+        ( a_class classes :: a
         |> Utils.map_cons_option a_onclick on_click
-        |> Utils.cons_if_lazy ripple (fun () -> a_user_data "ripple" (return "true"))
-        |> Utils.cons_if_lazy disabled a_disabled)
+        |> Utils.cons_if_lazy ripple (fun () ->
+               a_user_data "ripple" (return "true"))
+        |> Utils.cons_if_lazy disabled a_disabled )
       (on_icon ^:: icon @:: nil ())
 
-  let icon_button_a
-      ?(classes = return [])
-      ?(a = [])
-      ?href
-      ?(ripple = true)
-      ?(on = false)
-      ?on_icon
-      ~icon
-      () =
+  let icon_button_a ?(classes = return []) ?(a = []) ?href ?(ripple = true)
+      ?(on = false) ?on_icon ~icon () =
     let classes = fmap (Utils.cons_if on CSS.on % List.cons CSS.root) classes in
     Html.a
       ~a:
-        (a_class classes :: a
+        ( a_class classes :: a
         |> Utils.map_cons_option a_href href
-        |> Utils.cons_if_lazy ripple (fun () -> a_user_data "ripple" (return "true")))
+        |> Utils.cons_if_lazy ripple (fun () ->
+               a_user_data "ripple" (return "true")) )
       (on_icon ^:: icon @:: nil ())
 end
 

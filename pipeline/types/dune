@@ -1,8 +1,5 @@
 (library
-  (name       pipeline_types)
-  (libraries  qoe_backend_types
-              application_types
-              api
-              time
-              netlib)
-  (preprocess  (pps ppx_deriving_yojson ppx_deriving.eq ppx_deriving.ord)))
+ (name pipeline_types)
+ (libraries qoe_backend_types application_types api time netlib)
+ (preprocess
+  (pps ppx_deriving_yojson ppx_deriving.eq ppx_deriving.ord)))

@@ -18,18 +18,14 @@ let ( >>= ) = Lwt.( >>= )
 let ( >>=? ) = Lwt_result.bind
 
 let is_ts2ip_niitv (b : Topology.topo_board) =
-  match b.manufacturer, b.model with
-  | "NIITV", "TS2IP" -> true
-  | _ -> false
+  match (b.manufacturer, b.model) with "NIITV", "TS2IP" -> true | _ -> false
 
 let find_max l =
   let rec f max = function
     | [] -> max
     | hd :: tl -> f (if hd > max then hd else max) tl
   in
-  match l with
-  | [] -> failwith "find max: list is empty"
-  | hd :: tl -> f hd tl
+  match l with [] -> failwith "find max: list is empty" | hd :: tl -> f hd tl
 
 (* calculates the depth of the node *)
 let rec get_entry_depth depth = function
@@ -38,7 +34,7 @@ let rec get_entry_depth depth = function
       let ports = List.map (fun (x : Topology.topo_port) -> x.child) x.ports in
       match ports with
       | [] -> succ depth
-      | l -> succ @@ find_max (List.map (get_entry_depth depth) l))
+      | l -> succ @@ find_max (List.map (get_entry_depth depth) l) )
 
 let get_node_depth t =
   let depth = 0 in
@@ -47,7 +43,8 @@ let get_node_depth t =
       succ
       @@ find_max
            (List.map
-              (fun (x : Topology.topo_interface) -> get_entry_depth depth x.conn)
+              (fun (x : Topology.topo_interface) ->
+                get_entry_depth depth x.conn)
               x.ifaces)
   | `Boards x ->
       find_max
@@ -61,14 +58,14 @@ let get_node_depth t =
            x)
       |> succ
 
-let concat (l : string list) : string = List.fold_left (fun acc x -> x ^ " " ^ acc) "" l
+let concat (l : string list) : string =
+  List.fold_left (fun acc x -> x ^ " " ^ acc) "" l
 
 let grid_template_areas t =
   let depth = get_node_depth t in
   let rec get_entry_areas acc count = function
     | Topology.Input x ->
-        if count + 1 < depth
-        then
+        if count + 1 < depth then
           let inp = "\"" ^ Topo_node.input_to_area x in
           let rec aux acc = function
             | 0 -> acc
@@ -77,11 +74,13 @@ let grid_template_areas t =
           aux inp (2 * (depth - count - 1)) ^ acc ^ "\""
         else "\"" ^ Topo_node.input_to_area x ^ " " ^ acc ^ "\""
     | Topology.Board x -> (
-        let ports = List.map (fun (x : Topology.topo_port) -> x.child) x.ports in
+        let ports =
+          List.map (fun (x : Topology.topo_port) -> x.child) x.ports
+        in
         let str = ". " ^ Topo_node.board_to_area x ^ " " in
         match ports with
         | [] -> str ^ " " ^ acc
-        | l -> concat (List.map (get_entry_areas (str ^ acc) (count + 1)) l))
+        | l -> concat (List.map (get_entry_areas (str ^ acc) (count + 1)) l) )
   in
   match t with
   | `CPU (x : Topology.topo_cpu) ->
@@ -90,10 +89,14 @@ let grid_template_areas t =
         x.ifaces
       |> concat
   | `Boards x ->
-      let map board = get_entry_areas (". " ^ Topo_node.board_to_area board) 1 in
+      let map board =
+        get_entry_areas (". " ^ Topo_node.board_to_area board) 1
+      in
       List.map
         (fun board ->
-          List.map (fun (x : Topology.topo_port) -> map board x.child) board.ports
+          List.map
+            (fun (x : Topology.topo_port) -> map board x.child)
+            board.ports
           |> concat)
         x
       |> concat
@@ -101,7 +104,8 @@ let grid_template_areas t =
 let wrap area elt =
   let div = Widget.create_div () in
   div#add_class @@ BEM.add_element CSS.root "node-wrapper";
-  div#root##.style##.cssText := Js_of_ocaml.Js.string @@ "grid-area: " ^ area ^ ";";
+  div#root##.style##.cssText
+  := Js_of_ocaml.Js.string @@ "grid-area: " ^ area ^ ";";
   div#append_child elt;
   div
 
@@ -115,47 +119,51 @@ let map_cpu_conn (cpu : Topology.topo_cpu) : Topology.topo_cpu =
   let rec aux acc = function
     | [] -> acc
     | iface :: rest -> (
-      match iface.conn with
-      | Input _ -> aux (iface :: acc) rest
-      | Board b -> (
-        match is_ts2ip_niitv b with
-        | false -> aux (iface :: acc) rest
-        | true ->
-            let ifaces =
-              List.rev_map (fun x -> {iface = iface.iface; conn = x.child}) b.ports
-            in
-            aux (acc @ ifaces) rest))
+        match iface.conn with
+        | Input _ -> aux (iface :: acc) rest
+        | Board b -> (
+            match is_ts2ip_niitv b with
+            | false -> aux (iface :: acc) rest
+            | true ->
+                let ifaces =
+                  List.rev_map
+                    (fun x -> { iface = iface.iface; conn = x.child })
+                    b.ports
+                in
+                aux (acc @ ifaces) rest ) )
   in
   let ifaces = List.rev @@ aux [] cpu.ifaces in
-  {cpu with ifaces}
+  { cpu with ifaces }
 
 let make_nodes topology socket =
   let open Topology in
   let create_element ~(element : Topo_node.node_entry) ~connections =
-    let connections = List.map (fun (x, p) -> to_topo_node x, p) connections in
+    let connections =
+      List.map (fun (x, p) -> (to_topo_node x, p)) connections
+    in
     match element with
-    | `Entry (Board board) -> `Board (Topo_board.create ~connections socket board)
+    | `Entry (Board board) ->
+        `Board (Topo_board.create ~connections socket board)
     | `Entry (Input input) -> `Input (Topo_input.create input)
     | `CPU cpu -> `CPU (Topo_cpu.create ~connections socket cpu)
   in
   let rec get_boards acc = function
     | Input _ as i ->
         let i = create_element ~element:(`Entry i) ~connections:[] in
-        i, i :: acc
+        (i, i :: acc)
     | Board x as b ->
         let connections, acc =
           match x.ports with
-          | [] -> [], acc
+          | [] -> ([], acc)
           | l ->
               List.fold_left
                 (fun (conn, total) x ->
                   let e, acc = get_boards acc x.child in
-                  (e, `Port x) :: conn, acc @ total)
-                ([], [])
-                l
+                  ((e, `Port x) :: conn, acc @ total))
+                ([], []) l
         in
         let b = create_element ~element:(`Entry b) ~connections in
-        b, b :: acc
+        (b, b :: acc)
   in
   match topology with
   | `CPU cpu ->
@@ -164,9 +172,8 @@ let make_nodes topology socket =
         List.fold_left
           (fun (conn, total) x ->
             let e, acc = get_boards [] x.conn in
-            (e, `Iface x) :: conn, acc @ total)
-          ([], [])
-          cpu'.ifaces
+            ((e, `Iface x) :: conn, acc @ total))
+          ([], []) cpu'.ifaces
       in
       let cpu_el = create_element ~element:(`CPU cpu) ~connections in
       cpu_el :: acc
@@ -177,9 +184,8 @@ let make_nodes topology socket =
             List.fold_left
               (fun (conn, total) x ->
                 let e, acc = get_boards [] x.child in
-                (e, `Port x) :: conn, acc @ total)
-              ([], [])
-              board.ports
+                ((e, `Port x) :: conn, acc @ total))
+              ([], []) board.ports
           in
           let b = create_element ~element:(`Entry (Board board)) ~connections in
           b :: acc)
@@ -201,20 +207,25 @@ let update_nodes nodes (t : Topology.t) =
     (function
       | `CPU _ | `Input _ -> ()
       | `Board b -> (
-        match List.find_opt (eq b) boards with
-        | Some tb -> b#notify (`State tb)
-        | None -> ()))
+          match List.find_opt (eq b) boards with
+          | Some tb -> b#notify (`State tb)
+          | None -> () ))
     nodes
 
-type event = [`Topology of Topology.t]
+type event = [ `Topology of Topology.t ]
 
 let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
   let svg =
     Tyxml_js.Svg.(
-      svg ~a:[a_class [CSS.paths]] [] |> toelt |> Js.Unsafe.coerce |> Widget.create)
+      svg ~a:[ a_class [ CSS.paths ] ] []
+      |> toelt
+      |> Js.Unsafe.coerce
+      |> Widget.create)
   in
   let nodes = make_nodes init socket in
-  let gta = Printf.sprintf "grid-template-areas: %s;" (grid_template_areas init) in
+  let gta =
+    Printf.sprintf "grid-template-areas: %s;" (grid_template_areas init)
+  in
   let e_settings =
     List.filter_map
       (function
@@ -253,7 +264,9 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
         nodes;
       super#root##.style##.cssText := Js.string gta;
       let obs =
-        Resize_observer.observe ~node:super#root ~f:(fun _ _ -> self#layout ()) ()
+        Resize_observer.observe ~node:super#root
+          ~f:(fun _ _ -> self#layout ())
+          ()
       in
       _resize_observer <- Some obs
 
@@ -272,22 +285,15 @@ let create (init : Topology.t) (socket : Api_js.Websocket.JSON.t) =
         nodes
 
     method notify : event -> unit =
-      function
-      | `Topology x -> update_nodes nodes x
+      function `Topology x -> update_nodes nodes x
 
     method e_settings = e_settings
   end
 
-let on_settings
-    (side_sheet : #Side_sheet.Parent.t)
-    content
-    (set_title : string -> unit)
-    cur
-    old =
+let on_settings (side_sheet : #Side_sheet.Parent.t) content
+    (set_title : string -> unit) cur old =
   let content = Tyxml_js.To_dom.of_element content in
-  (match old with
-  | Some (w, _) -> w#destroy ()
-  | None -> ());
+  (match old with Some (w, _) -> w#destroy () | None -> ());
   Element.remove_children content;
   match cur with
   | None -> Lwt.return_unit
@@ -302,24 +308,22 @@ let () =
   let side_sheet, side_sheet_content, set_side_sheet_title =
     Topo_drawer.make ~title:"" ()
   in
-  let on_settings = on_settings side_sheet side_sheet_content set_side_sheet_title in
+  let on_settings =
+    on_settings side_sheet side_sheet_content set_side_sheet_title
+  in
   let thread =
-    Application_http_js.get_topology ()
-    >>=? fun init ->
+    Application_http_js.get_topology () >>=? fun init ->
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
-    Application_http_js.Event.get_topology socket
-    >>=? fun (_, event) ->
+    Application_http_js.Event.get_topology socket >>=? fun (_, event) ->
     let page = create init socket in
     let event = React.E.map (fun x -> page#notify (`Topology x)) event in
     let s_settings =
       React.S.hold None @@ React.E.map (fun x -> Some x) page#e_settings
     in
     let close =
-      Lwt_js_events.seq_loop
-        (Lwt_js_events.make_event Side_sheet.Event.close)
-        side_sheet#root
-        (fun _ _ ->
+      Lwt_js_events.seq_loop (Lwt_js_events.make_event Side_sheet.Event.close)
+        side_sheet#root (fun _ _ ->
           match React.S.value s_settings with
           | None -> Lwt.return_unit
           | Some (w, _) ->

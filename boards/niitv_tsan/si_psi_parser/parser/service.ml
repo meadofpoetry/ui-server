@@ -9,23 +9,29 @@ let parse bs off =
      ; service          : length_2 * 8 : save_offset_to (off_4), bitstring
      |}
     ->
-      let parsed = Application_types.MPEG_TS.service_type_to_string service_type in
+      let parsed =
+        Application_types.MPEG_TS.service_type_to_string service_type
+      in
       let service =
         match Text_decoder.decode @@ Util.Bitstring.to_cstruct service with
         | Ok s -> s
         | Error _ -> "Unable to decode"
       in
       let sp =
-        match Text_decoder.decode @@ Util.Bitstring.to_cstruct service_provider with
+        match
+          Text_decoder.decode @@ Util.Bitstring.to_cstruct service_provider
+        with
         | Ok s -> s
         | Error _ -> "Unable to decode"
       in
-      [ Node.make ~parsed ~offset:off 8 "service_type" (Hex (Int service_type))
-      ; Node.make
-          ~offset:(off + off_1)
-          8
-          "service_provider_name_length"
-          (Dec (Int length_1))
-      ; Node.make ~offset:(off + off_2) (length_1 * 8) "service_provider" (String sp)
-      ; Node.make ~offset:(off + off_3) 8 "service_name_length" (Dec (Int length_2))
-      ; Node.make ~offset:(off + off_4) (length_2 * 8) "service" (String service) ]
+      [
+        Node.make ~parsed ~offset:off 8 "service_type" (Hex (Int service_type));
+        Node.make ~offset:(off + off_1) 8 "service_provider_name_length"
+          (Dec (Int length_1));
+        Node.make ~offset:(off + off_2) (length_1 * 8) "service_provider"
+          (String sp);
+        Node.make ~offset:(off + off_3) 8 "service_name_length"
+          (Dec (Int length_2));
+        Node.make ~offset:(off + off_4) (length_2 * 8) "service"
+          (String service);
+      ]

@@ -8,14 +8,12 @@ module Event = struct
       ~path:Path.Format.("pipeline/measurements/video" @/ empty)
       ~query:
         Query.
-          [ "stream", (module Option (Application_types.Stream.ID))
-          ; "channel", (module Option (Int))
-          ; "pid", (module Option (Int)) ]
-      stream
-      channel
-      pid
-      of_yojson
-      sock
+          [
+            ("stream", (module Option (Application_types.Stream.ID)));
+            ("channel", (module Option (Int)));
+            ("pid", (module Option (Int)));
+          ]
+      stream channel pid of_yojson sock
 
   let get_audio ?stream ?channel ?pid sock =
     let of_yojson = Util_json.List.of_yojson Qoe_errors.Audio_data.of_yojson in
@@ -23,12 +21,10 @@ module Event = struct
       ~path:Path.Format.("pipeline/measurements/audio" @/ empty)
       ~query:
         Query.
-          [ "stream", (module Option (Application_types.Stream.ID))
-          ; "channel", (module Option (Int))
-          ; "pid", (module Option (Int)) ]
-      stream
-      channel
-      pid
-      of_yojson
-      sock
+          [
+            ("stream", (module Option (Application_types.Stream.ID)));
+            ("channel", (module Option (Int)));
+            ("pid", (module Option (Int)));
+          ]
+      stream channel pid of_yojson sock
 end

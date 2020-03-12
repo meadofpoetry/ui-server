@@ -21,7 +21,8 @@ module Make_int (M : P) : Getter with type t = M.t = struct
     let s = "0x" ^ Cstruct.to_string b in
     M.of_string s
 
-  let get (b : Cstruct.t) : t option = try Some (get_exn b) with Failure _ -> None
+  let get (b : Cstruct.t) : t option =
+    try Some (get_exn b) with Failure _ -> None
 end
 
 module Int : Getter with type t = int = Make_int (struct

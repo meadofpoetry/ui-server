@@ -1,4 +1,5 @@
 (library
-  (name       server_types)
-  (libraries  time cstruct base64)
-  (preprocess (pps ppx_deriving_yojson)))
+ (name server_types)
+ (libraries time cstruct base64)
+ (preprocess
+  (pps ppx_deriving_yojson)))

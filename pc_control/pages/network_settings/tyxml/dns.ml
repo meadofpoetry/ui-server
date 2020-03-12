@@ -20,26 +20,31 @@ struct
     let text = Ipaddr.V4.to_string ip in
     list_item ~meta ~primary_text:(`Text text) ()
 
-  let create_list (ip : Ipaddr.V4.t list) = list ~children:(List.map create_item ip) ()
+  let create_list (ip : Ipaddr.V4.t list) =
+    list ~children:(List.map create_item ip) ()
 
-  let create ?classes ?(a = []) (v : Pc_control_types.Network_config.ipv4_conf) =
+  let create ?classes ?(a = []) (v : Pc_control_types.Network_config.ipv4_conf)
+      =
     let add =
-      button ~classes:[Components_tyxml.Card.CSS.action] ~label:"Добавить" ()
+      button
+        ~classes:[ Components_tyxml.Card.CSS.action ]
+        ~label:"Добавить" ()
     in
     let empty =
       Unsafe.coerce_elt
       @@ div
-           ~a:[a_class [Common.CSS.empty_placeholder]]
-           [txt "DNS серверы не заданы"]
+           ~a:[ a_class [ Common.CSS.empty_placeholder ] ]
+           [ txt "DNS серверы не заданы" ]
     in
-    Common_markup.create_section
-      ?classes
-      ~a:(a_id id :: a)
+    Common_markup.create_section ?classes ~a:(a_id id :: a)
       ~header:
-        (Common_markup.create_section_header ~title:(`Text "DNS серверы") ())
+        (Common_markup.create_section_header ~title:(`Text "DNS серверы")
+           ())
       ~children:
-        [ card_media ~children:[create_list v.dns; empty] ()
-        ; card_actions ~children:[card_action_buttons ~children:[add] ()] () ]
+        [
+          card_media ~children:[ create_list v.dns; empty ] ();
+          card_actions ~children:[ card_action_buttons ~children:[ add ] () ] ();
+        ]
       ()
 end
 

@@ -10,7 +10,8 @@ module Selector = struct
 
   let overflow = Printf.sprintf ".%s" CSS.overflow
 
-  let overflow_icon = Printf.sprintf ".%s > .%s" CSS.overflow Icon_button.CSS.root
+  let overflow_icon =
+    Printf.sprintf ".%s > .%s" CSS.overflow Icon_button.CSS.root
 
   let menu = Printf.sprintf ".%s" Menu.CSS.root
 
@@ -50,18 +51,19 @@ let menu_of_actions actions =
                   match Element.get_attribute x Attr.title with
                   | Some x -> x
                   | None -> (
-                    match Element.get_attribute x Attr.aria_label with
-                    | Some x -> x
-                    | None ->
-                        let err =
-                          Printf.sprintf
-                            "%s: `title` or `aria-label` attribute should be provided \
-                             for every action"
-                            name
-                        in
-                        failwith err)
+                      match Element.get_attribute x Attr.aria_label with
+                      | Some x -> x
+                      | None ->
+                          let err =
+                            Printf.sprintf
+                              "%s: `title` or `aria-label` attribute should be \
+                               provided for every action"
+                              name
+                          in
+                          failwith err )
                 in
-                Menu.D.Item_list.list_item ?graphic:icon ~primary_text:(`Text name) ())
+                Menu.D.Item_list.list_item ?graphic:icon
+                  ~primary_text:(`Text name) ())
               actions)
          ())
     ()
@@ -105,21 +107,23 @@ class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () =
     method! initial_sync_with_dom () : unit =
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          [ (if resize_handler
-            then
+          [
+            ( if resize_handler then
               onresizes (fun _ _ ->
                   self#layout ();
                   Lwt.return_unit)
-            else Lwt.return_unit)
-          ; Menu.Lwt_js_events.selects (self#menu)#root (fun e _ ->
+            else Lwt.return_unit );
+            Menu.Lwt_js_events.selects self#menu#root (fun e _ ->
                 let detail = Widget.event_detail e in
                 let actions = Element.children actions_elt in
                 match List.nth_opt actions detail##.index with
                 | None -> Lwt.return_unit
                 | Some button ->
-                    Js.Opt.iter (Dom_html.CoerceTo.button button) (fun x -> x##click);
-                    Lwt.return_unit)
-          ; clicks overflow_icon#root self#handle_click ]
+                    Js.Opt.iter (Dom_html.CoerceTo.button button) (fun x ->
+                        x##click);
+                    Lwt.return_unit);
+            clicks overflow_icon#root self#handle_click;
+          ]
           @ listeners);
       super#initial_sync_with_dom ()
 
@@ -134,18 +138,17 @@ class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () =
             List.length menu > 0
         | nav :: tl, menu_item :: tl' ->
             let acc =
-              if nav##.offsetTop > offset_top
-              then (
+              if nav##.offsetTop > offset_top then (
                 menu_item##.style##.display := Js.string "";
-                true)
+                true )
               else (
                 menu_item##.style##.display := Js.string "none";
-                acc)
+                acc )
             in
             loop acc (tl, tl')
       in
-      if loop false (nav_items, menu_items)
-      then overflow_elt##.style##.display := Js.string ""
+      if loop false (nav_items, menu_items) then
+        overflow_elt##.style##.display := Js.string ""
       else overflow_elt##.style##.display := Js.string "none";
       super#layout ()
 
@@ -161,9 +164,10 @@ class t ?(resize_handler = true) (elt : Dom_html.element Js.t) () =
 
     method private handle_click e _ : unit Lwt.t =
       let target = Dom_html.eventTarget e in
-      if (not @@ Element.contains (self#menu)#root target)
-         && (not @@ Element.equal (self#menu)#root target)
-      then (self#menu)#reveal ()
+      if
+        (not @@ Element.contains self#menu#root target)
+        && (not @@ Element.equal self#menu#root target)
+      then self#menu#reveal ()
       else Lwt.return_unit
   end
 

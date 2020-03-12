@@ -1,7 +1,4 @@
-type align =
-  | Start
-  | Center
-  | End
+type align = Start | Center | End
 
 module CSS = struct
   (** Mandatory. Contains the tab scroller content. *)
@@ -17,8 +14,8 @@ module CSS = struct
   (** Mandatory. Denotes the scrolling content. *)
   let scroll_content = BEM.add_element root "scroll-content"
 
-  (** Optional. Sets the elements inside the scroll content element
-      to be aligned to the start of the scroll content element. *)
+  (** Optional. Sets the elements inside the scroll content element to be
+      aligned to the start of the scroll content element. *)
   let align_start = BEM.add_modifier root "align-start"
 
   (** Optional. Sets the elements inside the scroll content element to be
@@ -40,26 +37,18 @@ struct
   open Xml.W
   open Html
 
-  let tab_scroller_scroll_content ?(classes = return []) ?(a = []) ?(tabs = nil ()) () =
+  let tab_scroller_scroll_content ?(classes = return []) ?(a = [])
+      ?(tabs = nil ()) () =
     let classes = fmap (fun x -> CSS.scroll_content :: x) classes in
     div ~a:(a_class classes :: a) tabs
 
-  let tab_scroller_scroll_area
-      ?(classes = return [])
-      ?(a = [])
-      ?tabs
-      ?(scroll_content = tab_scroller_scroll_content ?tabs ())
-      () =
+  let tab_scroller_scroll_area ?(classes = return []) ?(a = []) ?tabs
+      ?(scroll_content = tab_scroller_scroll_content ?tabs ()) () =
     let classes = fmap (fun x -> CSS.scroll_area :: x) classes in
     div ~a:(a_class classes :: a) (singleton (return scroll_content))
 
-  let tab_scroller
-      ?(classes = return [])
-      ?(a = [])
-      ?align
-      ?tabs
-      ?(scroll_area = tab_scroller_scroll_area ?tabs ())
-      () =
+  let tab_scroller ?(classes = return []) ?(a = []) ?align ?tabs
+      ?(scroll_area = tab_scroller_scroll_area ?tabs ()) () =
     let align =
       match align with
       | None -> None

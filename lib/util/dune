@@ -1,13 +1,13 @@
 (library
-  (name      util_json)
-  (modules   util_json)
-  (libraries yojson))
+ (name util_json)
+ (modules util_json)
+ (libraries yojson))
 
 (library
-  (name      util_react)
-  (modules   util_react)
-  (libraries lwt_react))
+ (name util_react)
+ (modules util_react)
+ (libraries lwt_react))
 
 (library
-  (name      util_equal)
-  (modules   util_equal))
+ (name util_equal)
+ (modules util_equal))

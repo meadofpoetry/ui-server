@@ -45,10 +45,15 @@ let parse bs off =
       let parsed_mod = parse_modulation_scheme modulation in
       let parsed_out = parse_outer_fec fec_outer in
       let parsed_in = parse_inner_fec fec_inner in
-      [ Node.make ~offset:off 32 "frequency" (Dec (Int32 frequency))
-      ; Node.make ~offset:(off + off_1) 12 "reserved_future_use" (Bits (Int rfu))
-      ; Node.make ~parsed:parsed_out ~offset:(off + off_2) 4 "FEC_outer" (Dec (Int rfu))
-      ; Node.make ~parsed:parsed_mod ~offset:(off + off_3) 8 "modulation" (Hex (Int rfu))
-      ; Node.make ~offset:(off + off_4) 28 "symbol_rate" (Dec (Int symbol_rate))
-      ; Node.make ~parsed:parsed_in ~offset:(off + off_5) 4 "FEC_inner" (Dec (Int rfu))
+      [
+        Node.make ~offset:off 32 "frequency" (Dec (Int32 frequency));
+        Node.make ~offset:(off + off_1) 12 "reserved_future_use"
+          (Bits (Int rfu));
+        Node.make ~parsed:parsed_out ~offset:(off + off_2) 4 "FEC_outer"
+          (Dec (Int rfu));
+        Node.make ~parsed:parsed_mod ~offset:(off + off_3) 8 "modulation"
+          (Hex (Int rfu));
+        Node.make ~offset:(off + off_4) 28 "symbol_rate" (Dec (Int symbol_rate));
+        Node.make ~parsed:parsed_in ~offset:(off + off_5) 4 "FEC_inner"
+          (Dec (Int rfu));
       ]

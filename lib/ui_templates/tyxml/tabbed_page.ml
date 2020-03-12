@@ -23,23 +23,22 @@ struct
   module Glide_markup = Components_lab_tyxml.Glide.Make (Xml) (Svg) (Html)
   open Html
 
-  type tab = {
-    id : string;
-    name : string;
-    children : Xml.elt list;
-  }
+  type tab = { id : string; name : string; children : Xml.elt list }
 
   let create_tab ?classes ?a ~id ~name () =
     Tab_markup.tab
       ~a:[ a_id (tab_id id); a_aria "controls" [ tabpanel_id id ] ]
-      ~text_label:name
-      ()
+      ~text_label:name ()
 
   let create_tab_bar ?classes ?a ?(tabs = []) () =
     let scroll_content =
-      Tab_scroller_markup.tab_scroller_scroll_content ~a:[ a_role [ "tablist" ] ] ~tabs ()
+      Tab_scroller_markup.tab_scroller_scroll_content
+        ~a:[ a_role [ "tablist" ] ]
+        ~tabs ()
     in
-    let scroll_area = Tab_scroller_markup.tab_scroller_scroll_area ~scroll_content () in
+    let scroll_area =
+      Tab_scroller_markup.tab_scroller_scroll_area ~scroll_content ()
+    in
     let scroller = Tab_scroller_markup.tab_scroller ~scroll_area () in
     Tab_bar_markup.tab_bar ?classes ?a ~scroller ()
 
@@ -49,15 +48,13 @@ struct
 
   let create_tabpanel ?(classes = []) ?(a = []) ~id ?children () =
     let classes = CSS.tabpanel :: classes in
-    Glide_markup.glide_slide
-      ~classes
+    Glide_markup.glide_slide ~classes
       ~a:
-        (a_id (tabpanel_id id)
+        ( a_id (tabpanel_id id)
         :: a_role [ "tabpanel" ]
         :: a_aria "labelledby" [ tab_id id ]
-        :: a)
-      ?children
-      ()
+        :: a )
+      ?children ()
 
   let create ?(classes = []) ?(a = []) ?(children = []) () =
     let classes = CSS.root :: classes in
@@ -67,14 +64,16 @@ struct
            (fun { id; name; children } ->
              let tab = create_tab ~id ~name () in
              let tabpanel =
-               create_tabpanel ~id ~children:[ create_tabpanel_content ~children () ] ()
+               create_tabpanel ~id
+                 ~children:[ create_tabpanel_content ~children () ]
+                 ()
              in
-             tab, tabpanel)
+             (tab, tabpanel))
            children
     in
     let tab_bar = create_tab_bar ~tabs () in
     let glide = Glide_markup.glide ~classes ~slides () in
-    tab_bar, glide
+    (tab_bar, glide)
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

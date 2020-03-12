@@ -10,98 +10,82 @@ let icon d =
 
 let network_handlers (network : Pc_control.Network.t) =
   let open Api_http in
-  make
-    ~prefix:"network"
-    [ node
-        ~doc:"Network configuration"
-        ~meth:`GET
+  make ~prefix:"network"
+    [
+      node ~doc:"Network configuration" ~meth:`GET
         ~path:Path.Format.("config" @/ empty)
         ~query:Query.empty
-        (Pc_control.Network_api.get_config network)
-    ; node
-        ~doc:"Network configuration"
-        ~restrict:[`Guest; `Operator]
+        (Pc_control.Network_api.get_config network);
+      node ~doc:"Network configuration" ~restrict:[ `Guest; `Operator ]
         ~meth:`POST
         ~path:Path.Format.("config" @/ empty)
         ~query:Query.empty
-        (Pc_control.Network_api.set_config network) ]
+        (Pc_control.Network_api.set_config network);
+    ]
 
 let network_ws (network : Pc_control.Network.t) =
   let open Api_websocket in
-  make
-    ~prefix:"network"
-    [ event_node
-        ~doc:"Network configuration"
+  make ~prefix:"network"
+    [
+      event_node ~doc:"Network configuration"
         ~path:Path.Format.("config" @/ empty)
         ~query:Query.empty
-        (Pc_control.Network_api.Event.get_config network) ]
+        (Pc_control.Network_api.Event.get_config network);
+    ]
 
 let network_pages : 'a. unit -> 'a Api_template.item list =
  fun () ->
   let open Api_template in
   let props =
-    make_template_props
-      ~title:"Сетевые настройки"
-      ~post_scripts:[`Src "/js/page-network-settings.js"]
-      ~stylesheets:["/css/page-network-settings.min.css"]
+    make_template_props ~title:"Сетевые настройки"
+      ~post_scripts:[ `Src "/js/page-network-settings.js" ]
+      ~stylesheets:[ "/css/page-network-settings.min.css" ]
       ()
   in
-  simple
-    ~restrict:[`Operator; `Guest]
-    ~priority:(`Index 10)
-    ~title:"Сеть"
+  simple ~restrict:[ `Operator; `Guest ] ~priority:(`Index 10) ~title:"Сеть"
     ~icon:(icon Components_tyxml.Svg_icons.lan)
     ~path:(Path.of_string "settings/network")
     props
 
 let software_updates_handlers (su : Pc_control.Software_updates.t) =
   let open Api_http in
-  make
-    ~prefix:"updates"
-    [ node
-        ~doc:"Check for available packages"
-        ~restrict:[`Guest; `Operator]
+  make ~prefix:"updates"
+    [
+      node ~doc:"Check for available packages" ~restrict:[ `Guest; `Operator ]
         ~meth:`POST
         ~path:Path.Format.("check-updates" @/ empty)
         ~query:Query.empty
-        (Pc_control.Software_updates_api.check_for_upgrades su)
-    ; node
-        ~doc:"Upgrade"
-        ~restrict:[`Guest; `Operator]
-        ~meth:`POST
+        (Pc_control.Software_updates_api.check_for_upgrades su);
+      node ~doc:"Upgrade" ~restrict:[ `Guest; `Operator ] ~meth:`POST
         ~path:Path.Format.("upgrade" @/ empty)
-        ~query:Query.["reboot", (module Option (Bool))]
-        (Pc_control.Software_updates_api.do_upgrade su)
-    ; node
-        ~doc:"Current state"
-        ~meth:`GET
+        ~query:Query.[ ("reboot", (module Option (Bool))) ]
+        (Pc_control.Software_updates_api.do_upgrade su);
+      node ~doc:"Current state" ~meth:`GET
         ~path:Path.Format.("state" @/ empty)
         ~query:Query.empty
-        (Pc_control.Software_updates_api.get_state su) ]
+        (Pc_control.Software_updates_api.get_state su);
+    ]
 
 let software_updates_ws (su : Pc_control.Software_updates.t) =
   let open Api_websocket in
-  make
-    ~prefix:"updates"
-    [ event_node
-        ~doc:"Update state"
+  make ~prefix:"updates"
+    [
+      event_node ~doc:"Update state"
         ~path:Path.Format.("state" @/ empty)
         ~query:Query.empty
-        (Pc_control.Software_updates_api.Event.get_state su) ]
+        (Pc_control.Software_updates_api.Event.get_state su);
+    ]
 
 let software_updates_pages : 'a. unit -> 'a Api_template.item list =
  fun () ->
   let open Api_template in
   let props =
-    make_template_props
-      ~title:"Обновления"
-      ~post_scripts:[`Src "/js/page-software-updates.js"]
-      ~stylesheets:["/css/page-software-updates.min.css"]
+    make_template_props ~title:"Обновления"
+      ~post_scripts:[ `Src "/js/page-software-updates.js" ]
+      ~stylesheets:[ "/css/page-software-updates.min.css" ]
       ()
   in
-  simple
-    ~restrict:[`Operator; `Guest]
-    ~priority:(`Index 10)
+  simple ~restrict:[ `Operator; `Guest ] ~priority:(`Index 10)
     ~title:"Обновления"
     ~icon:(icon Components_tyxml.Svg_icons.update)
     ~path:(Path.of_string "settings/updates")
@@ -109,38 +93,27 @@ let software_updates_pages : 'a. unit -> 'a Api_template.item list =
 
 let power_handlers =
   let open Api_http in
-  make
-    ~prefix:"power"
-    [ node
-        ~doc:"Reboot"
-        ~restrict:[`Guest; `Operator]
-        ~meth:`POST
+  make ~prefix:"power"
+    [
+      node ~doc:"Reboot" ~restrict:[ `Guest; `Operator ] ~meth:`POST
         ~path:Path.Format.("reboot" @/ empty)
-        ~query:Query.empty
-        Pc_control.Power_api.reboot
-    ; node
-        ~doc:"Off"
-        ~restrict:[`Guest; `Operator]
-        ~meth:`POST
+        ~query:Query.empty Pc_control.Power_api.reboot;
+      node ~doc:"Off" ~restrict:[ `Guest; `Operator ] ~meth:`POST
         ~path:Path.Format.("off" @/ empty)
-        ~query:Query.empty
-        Pc_control.Power_api.off ]
+        ~query:Query.empty Pc_control.Power_api.off;
+    ]
 
 let power_pages : 'a. unit -> 'a Api_template.item list =
  fun () ->
   let open Api_template in
   let markup = Tyxml.Html.toelt @@ Page_power_management_tyxml.F.create () in
   let props =
-    make_template_props
-      ~title:"Управление питанием"
-      ~post_scripts:[`Src "/js/page-power-management.js"]
-      ~stylesheets:["/css/page-power-management.min.css"]
-      ~content:[markup]
-      ()
+    make_template_props ~title:"Управление питанием"
+      ~post_scripts:[ `Src "/js/page-power-management.js" ]
+      ~stylesheets:[ "/css/page-power-management.min.css" ]
+      ~content:[ markup ] ()
   in
-  simple
-    ~restrict:[`Operator; `Guest]
-    ~priority:(`Index 10)
+  simple ~restrict:[ `Operator; `Guest ] ~priority:(`Index 10)
     ~title:"Питание"
     ~icon:(icon Components_tyxml.Svg_icons.power)
     ~path:(Path.of_string "settings/power")

@@ -28,37 +28,36 @@ class t (elt : Dom_html.element Js.t) () =
 
     method set_indeterminate (indeterminate : bool) =
       super#toggle_class ~force:indeterminate CSS.indeterminate;
-      if indeterminate
-      then (
+      if indeterminate then (
         self#set_scale 1. primary_bar;
-        self#set_scale 1. buffer)
+        self#set_scale 1. buffer )
       else self#set_scale progress primary_bar
 
     method set_progress x =
       progress <- x;
       if not @@ self#indeterminate then self#set_scale x primary_bar
 
-    method set_buffer x = if not @@ self#indeterminate then self#set_scale x buffer
+    method set_buffer x =
+      if not @@ self#indeterminate then self#set_scale x buffer
 
     method reversed : bool = super#has_class CSS.reversed
 
-    method set_reverse (x : bool) : unit = super#toggle_class ~force:x CSS.reversed
+    method set_reverse (x : bool) : unit =
+      super#toggle_class ~force:x CSS.reversed
 
     method open_ () : unit Lwt.t =
-      if not @@ super#has_class CSS.closed
-      then Lwt.return_unit
+      if not @@ super#has_class CSS.closed then Lwt.return_unit
       else
         let thread = Js_of_ocaml_lwt.Lwt_js_events.transitionend super#root in
         super#remove_class CSS.closed;
-        Lwt.pick [Js_of_ocaml_lwt.Lwt_js.sleep 1.; thread]
+        Lwt.pick [ Js_of_ocaml_lwt.Lwt_js.sleep 1.; thread ]
 
     method close () : unit Lwt.t =
-      if super#has_class CSS.closed
-      then Lwt.return_unit
+      if super#has_class CSS.closed then Lwt.return_unit
       else
         let thread = Js_of_ocaml_lwt.Lwt_js_events.transitionend super#root in
         super#add_class CSS.closed;
-        Lwt.pick [Js_of_ocaml_lwt.Lwt_js.sleep 1.; thread]
+        Lwt.pick [ Js_of_ocaml_lwt.Lwt_js.sleep 1.; thread ]
 
     method private set_scale value =
       function
@@ -68,31 +67,12 @@ class t (elt : Dom_html.element Js.t) () =
           (Js.Unsafe.coerce elt##.style)##setProperty transform scale
   end
 
-let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
+let attach (elt : #Dom_html.element Js.t) : t =
+  new t (elt :> Dom_html.element Js.t) ()
 
-let make
-    ?classes
-    ?a
-    ?indeterminate
-    ?reversed
-    ?closed
-    ?buffering_dots
-    ?buffer
-    ?primary_bar
-    ?secondary_bar
-    ?children
-    () : t =
-  D.linear_progress
-    ?classes
-    ?a
-    ?indeterminate
-    ?reversed
-    ?closed
-    ?buffering_dots
-    ?buffer
-    ?primary_bar
-    ?secondary_bar
-    ?children
-    ()
+let make ?classes ?a ?indeterminate ?reversed ?closed ?buffering_dots ?buffer
+    ?primary_bar ?secondary_bar ?children () : t =
+  D.linear_progress ?classes ?a ?indeterminate ?reversed ?closed ?buffering_dots
+    ?buffer ?primary_bar ?secondary_bar ?children ()
   |> Tyxml_js.To_dom.of_div
   |> attach

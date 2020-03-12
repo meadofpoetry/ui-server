@@ -8,19 +8,17 @@ module D = Make (Tyxml_js.Xml) (Tyxml_js.Svg) (Tyxml_js.Html)
 
 let ( >>= ) = Lwt.bind
 
-type event =
-  [ `Streams of Structure.Annotated.t
-  | `Layout of Wm.Annotated.t ]
+type event = [ `Streams of Structure.Annotated.t | `Layout of Wm.Annotated.t ]
 
 let compare_domain a b =
-  match a, b with
+  match (a, b) with
   | Wm.Nihil, Wm.Nihil -> 0
   | Nihil, Chan _ -> -1
   | Chan _, Nihil -> 1
   | Chan a, Chan b -> (
-    match Stream.ID.compare a.stream b.stream with
-    | 0 -> compare a.channel b.channel
-    | x -> x)
+      match Stream.ID.compare a.stream b.stream with
+      | 0 -> compare a.channel b.channel
+      | x -> x )
 
 module type S = sig
   type t
@@ -59,28 +57,33 @@ module Make (S : S) = struct
 
   let aspect_to_float (a, b) = float_of_int a /. float_of_int b
 
-  let default_aspect = function
-    | Wm.Video -> 16, 9
-    | Audio -> 1, 10
+  let default_aspect = function Wm.Video -> (16, 9) | Audio -> (1, 10)
 
   let container_position ~cols ~rows i =
-    { Wm.x = float_of_int (i mod cols) /. float_of_int cols
-    ; y = float_of_int (i / cols) /. float_of_int rows
-    ; w = 1. /. float_of_int cols
-    ; h = 1. /. float_of_int rows }
+    {
+      Wm.x = float_of_int (i mod cols) /. float_of_int cols;
+      y = float_of_int (i / cols) /. float_of_int rows;
+      w = 1. /. float_of_int cols;
+      h = 1. /. float_of_int rows;
+    }
 
   let make_container ~cols ~rows ~video_asp ~audio_asp index (_domain, (v, a)) =
     let position = container_position ~cols ~rows index in
     let vwidth = video_asp /. (video_asp +. audio_asp) in
     let awidth = 1. -. vwidth in
-    let v = Option.map (S.set_position {x = 0.; y = 0.; w = vwidth; h = 1.}) v in
-    let a = Option.map (S.set_position {x = vwidth; y = 0.; w = awidth; h = 1.}) a in
-    match v, a with
-    | None, None -> "", {Wm.position; widgets = []}
+    let v =
+      Option.map (S.set_position { x = 0.; y = 0.; w = vwidth; h = 1. }) v
+    in
+    let a =
+      Option.map (S.set_position { x = vwidth; y = 0.; w = awidth; h = 1. }) a
+    in
+    match (v, a) with
+    | None, None -> ("", { Wm.position; widgets = [] })
     | Some x, None | None, Some x ->
-        S.container_title x, {position; widgets = [S.to_widget x]}
+        (S.container_title x, { position; widgets = [ S.to_widget x ] })
     | Some x, Some y ->
-        S.container_title x, {position; widgets = [S.to_widget x; S.to_widget y]}
+        ( S.container_title x,
+          { position; widgets = [ S.to_widget x; S.to_widget y ] } )
 
   let get_primary_aspect typ (widgets : S.t list Types.t Domains.t) =
     let aspects =
@@ -95,20 +98,13 @@ module Make (S : S) = struct
                      match (widget x).aspect with
                      | None -> acc
                      | Some aspect ->
-                         Aspects.update
-                           aspect
-                           (function
-                             | None -> Some 1
-                             | Some x -> Some (succ x))
+                         Aspects.update aspect
+                           (function None -> Some 1 | Some x -> Some (succ x))
                            acc)
-                   acc
-                   widgets)
-           widgets
-           Aspects.empty
+                   acc widgets)
+           widgets Aspects.empty
     in
-    match aspects with
-    | [] -> default_aspect typ
-    | (aspect, _) :: _ -> aspect
+    match aspects with [] -> default_aspect typ | (aspect, _) :: _ -> aspect
 
   let get_pairs widgets =
     Domains.map
@@ -116,42 +112,31 @@ module Make (S : S) = struct
         (* rev to take first selected widget *)
         let video = Option.map List.rev @@ Types.find_opt Video widgets in
         let audio = Option.map List.rev @@ Types.find_opt Audio widgets in
-        match video, audio with
-        | Some (v :: _), Some (a :: _) -> Some v, Some a
-        | None, Some (a :: _) | Some [], Some (a :: _) -> None, Some a
-        | Some (v :: _), None | Some (v :: _), Some [] -> Some v, None
-        | _ -> None, None)
+        match (video, audio) with
+        | Some (v :: _), Some (a :: _) -> (Some v, Some a)
+        | None, Some (a :: _) | Some [], Some (a :: _) -> (None, Some a)
+        | Some (v :: _), None | Some (v :: _), Some [] -> (Some v, None)
+        | _ -> (None, None))
       widgets
 
   let widgets data =
     List.fold_left
       (fun acc x ->
         let (widget : Wm.widget) = widget x in
-        Domains.update
-          widget.domain
+        Domains.update widget.domain
           (fun acc ->
-            let widgets =
-              match acc with
-              | None -> Types.empty
-              | Some x -> x
-            in
+            let widgets = match acc with None -> Types.empty | Some x -> x in
             Some
-              (Types.update
-                 widget.type_
+              (Types.update widget.type_
                  (fun acc ->
-                   let widgets =
-                     match acc with
-                     | None -> []
-                     | Some x -> x
-                   in
+                   let widgets = match acc with None -> [] | Some x -> x in
                    Some (x :: widgets))
                  widgets))
           acc)
-      Domains.empty
-      data
+      Domains.empty data
 
   let get_cols_rows ~resolution ~aspect num =
-    let w, h = float_of_int (fst resolution), float_of_int (snd resolution) in
+    let w, h = (float_of_int (fst resolution), float_of_int (snd resolution)) in
     let rec aux ((_, _, sq') as acc) = function
       | 0 -> acc
       | i ->
@@ -159,19 +144,18 @@ module Make (S : S) = struct
           let cols = ceil (float_of_int num /. rows) in
           let total_height = w /. cols /. aspect *. rows in
           let sq =
-            if total_height <= h
-            then
+            if total_height <= h then
               let item_w = w /. cols in
               item_w *. item_w *. aspect
             else
               let item_h = h /. rows in
               item_h *. item_h /. aspect
           in
-          let acc = if sq' > sq then acc else int_of_float cols, i, sq in
+          let acc = if sq' > sq then acc else (int_of_float cols, i, sq) in
           aux acc (pred i)
     in
     let cols, rows, _ = aux (0, 0, 0.) num in
-    cols, rows
+    (cols, rows)
 
   let layout_of_widgets ~resolution = function
     | [] -> []
@@ -195,8 +179,8 @@ module Layout = Make (struct
   let to_widget (x : t) = x.widget
 
   let set_position (p : Wm.position) (x : t) =
-    let widget = {(snd @@ to_widget x) with position = Some p} in
-    {x with widget = fst x.widget, widget}
+    let widget = { (snd @@ to_widget x) with position = Some p } in
+    { x with widget = (fst x.widget, widget) }
 end)
 
 let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
@@ -212,28 +196,27 @@ let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
         match cur#node_value x with
         | None -> acc
         | Some v -> (
-          match
-            List.find_opt
-              (fun x ->
-                match old#node_value x with
-                | None -> false
-                | Some v' -> String.equal v v')
-              old_nodes
-          with
-          | None -> acc
-          | Some node ->
-              let attr = Treeview.Attr.aria_expanded in
-              (match Element.get_attribute node attr with
-              | None -> ()
-              | Some a -> Element.set_attribute x attr a);
-              let acc =
-                match try_focus ~old:node ~cur:x with
-                | None -> acc
-                | Some _ as x -> x
-              in
-              merge acc (old#node_children node) (cur#node_children x)))
-      acc
-      cur_nodes
+            match
+              List.find_opt
+                (fun x ->
+                  match old#node_value x with
+                  | None -> false
+                  | Some v' -> String.equal v v')
+                old_nodes
+            with
+            | None -> acc
+            | Some node ->
+                let attr = Treeview.Attr.aria_expanded in
+                ( match Element.get_attribute node attr with
+                | None -> ()
+                | Some a -> Element.set_attribute x attr a );
+                let acc =
+                  match try_focus ~old:node ~cur:x with
+                  | None -> acc
+                  | Some _ as x -> x
+                in
+                merge acc (old#node_children node) (cur#node_children x) ))
+      acc cur_nodes
   in
   merge None old#root_nodes cur#root_nodes
 
@@ -254,25 +237,29 @@ class t ~treeview ~layout ~structure (elt : Dom_html.element Js.t) () =
             match _treeview#node_value x with
             | None -> None
             | Some json -> (
-              try
-                match data_of_yojson @@ Yojson.Safe.from_string json with
-                | Error _ -> None
-                | Ok x -> Some x
-              with _ -> None))
+                try
+                  match data_of_yojson @@ Yojson.Safe.from_string json with
+                  | Error _ -> None
+                  | Ok x -> Some x
+                with _ -> None ))
         @@ _treeview#selected_leafs
       in
-      {Wm.resolution; widgets = []; layout = Layout.layout_of_widgets ~resolution data}
+      {
+        Wm.resolution;
+        widgets = [];
+        layout = Layout.layout_of_widgets ~resolution data;
+      }
 
     method notify : event -> unit =
       function
       | (`Streams _ | `Layout _) as evt ->
-          (match evt with
+          ( match evt with
           | `Layout l -> _layout <- l
-          | `Streams s -> _structure <- s);
+          | `Streams s -> _structure <- s );
           let structure, layout =
             match evt with
-            | `Layout layout -> _structure, layout
-            | `Streams structure -> structure, _layout
+            | `Layout layout -> (_structure, layout)
+            | `Streams structure -> (structure, _layout)
           in
           let old = _treeview in
           let cur =
@@ -293,7 +280,9 @@ class t ~treeview ~layout ~structure (elt : Dom_html.element Js.t) () =
 
 let make (structure : Structure.Annotated.t) (wm : Wm.Annotated.t) =
   let treeview =
-    Treeview.attach @@ Tyxml_js.To_dom.of_element @@ D.create_treeview structure wm
+    Treeview.attach
+    @@ Tyxml_js.To_dom.of_element
+    @@ D.create_treeview structure wm
   in
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element @@ D.create ~treeview:treeview#markup ()

@@ -1,4 +1,5 @@
 (library
-  (name       si_psi_parser_types)
-  (libraries  time)
-  (preprocess (pps ppx_deriving_yojson)))
+ (name si_psi_parser_types)
+ (libraries time)
+ (preprocess
+  (pps ppx_deriving_yojson)))

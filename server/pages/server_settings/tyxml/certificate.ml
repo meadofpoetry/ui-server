@@ -49,41 +49,28 @@ struct
 
   let create_import_button ?(classes = []) ?(a = []) ~label () =
     let classes = CSS.file_button :: classes in
-    let input = input ~a:[a_input_type `File] () in
+    let input = input ~a:[ a_input_type `File ] () in
     let button = button ~label () in
-    div ~a:([a_class classes] @ a) [input; button]
+    div ~a:([ a_class classes ] @ a) [ input; button ]
 
   let create_row ?(classes = []) ?(a = []) ?name typ =
-    let ( ^:: ) x l =
-      match x with
-      | None -> l
-      | Some x -> x :: l
-    in
-    let state =
-      match name with
-      | None -> CSS.empty
-      | Some _ -> ""
-    in
-    let name =
-      match name with
-      | Some n -> n
-      | None -> empty
-    in
+    let ( ^:: ) x l = match x with None -> l | Some x -> x :: l in
+    let state = match name with None -> CSS.empty | Some _ -> "" in
+    let name = match name with Some n -> n | None -> empty in
     let class_, icon, title =
       match typ with
-      | `Crt -> CSS.certificate, Svg_icons.certificate, "Сертификат"
-      | `Key -> CSS.private_key, Svg_icons.key, "Приватный ключ"
+      | `Crt -> (CSS.certificate, Svg_icons.certificate, "Сертификат")
+      | `Key -> (CSS.private_key, Svg_icons.key, "Приватный ключ")
     in
     let classes = CSS.row :: state :: class_ :: classes in
     let import =
       create_import_button
-        ~classes:[CSS.action; CSS.action_import]
-        ~label:"Импорт"
-        ()
+        ~classes:[ CSS.action; CSS.action_import ]
+        ~label:"Импорт" ()
     in
     let remove =
       icon_button
-        ~classes:[CSS.action; CSS.action_remove]
+        ~classes:[ CSS.action; CSS.action_remove ]
         ~icon:(SVG.icon ~d:Svg_icons.delete ())
         ()
     in
@@ -93,33 +80,36 @@ struct
       | `Crt ->
           Some
             (icon_button
-               ~classes:[CSS.action; CSS.action_info]
+               ~classes:[ CSS.action; CSS.action_info ]
                ~icon:(SVG.icon ~d:Svg_icons.information ())
                ())
     in
     div
-      ~a:([a_class classes] @ a)
-      [ span [SVG.icon ~d:icon (); txt title]
-      ; span ~a:[a_class [CSS.filename]] [txt name]
-      ; div ~a:[a_class [CSS.actions]] (import :: (info ^:: [remove])) ]
+      ~a:([ a_class classes ] @ a)
+      [
+        span [ SVG.icon ~d:icon (); txt title ];
+        span ~a:[ a_class [ CSS.filename ] ] [ txt name ];
+        div ~a:[ a_class [ CSS.actions ] ] (import :: (info ^:: [ remove ]));
+      ]
 
   let create ?classes ?(a = []) (v : Server_types.settings) : 'a elt =
-    create_section
-      ?classes
-      ~a:(a_id id :: a)
+    create_section ?classes ~a:(a_id id :: a)
       ~header:(create_section_header ~title:(`Text "Сертификат") ())
       ~children:
-        [ Card_markup.card_media
-            ~classes:[CSS.root]
+        [
+          Card_markup.card_media ~classes:[ CSS.root ]
             ~children:
-              [ create_row
+              [
+                create_row
                   ?name:
-                    (match v.tls_cert with
+                    ( match v.tls_cert with
                     | None -> None
-                    | Some (n, _) -> Some n)
-                  `Crt
-              ; create_row ?name:v.tls_key `Key ]
-            () ]
+                    | Some (n, _) -> Some n )
+                  `Crt;
+                create_row ?name:v.tls_key `Key;
+              ]
+            ();
+        ]
       ()
 end
 

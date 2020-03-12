@@ -22,25 +22,25 @@ struct
   open Ui_templates_tyxml.Settings_page.Make (Xml) (Svg) (Html)
 
   let create ?classes ?(a = []) (v : Server_types.settings) : 'a elt =
-    let submit = button ~classes:[Card.CSS.action] ~label:"Применить" () in
+    let submit =
+      button ~classes:[ Card.CSS.action ] ~label:"Применить" ()
+    in
     let enable_input_id = enable_id ^ "-input" in
     let switch = switch ~input_id:enable_input_id ~checked:v.https_enabled () in
     let enable =
-      form_field
-        ~a:[a_id enable_id]
+      form_field ~a:[ a_id enable_id ]
         ~label:"Использовать HTTPS протокол"
-        ~label_for:enable_input_id
-        ~align_end:true
-        ~input:switch
-        ()
+        ~label_for:enable_input_id ~align_end:true ~input:switch ()
     in
-    create_section
-      ?classes
-      ~a:(a_id id :: a)
+    create_section ?classes ~a:(a_id id :: a)
       ~header:(create_section_header ~title:(`Text "HTTPS") ())
       ~children:
-        [ card_media ~children:[enable] ()
-        ; card_actions ~children:[card_action_buttons ~children:[submit] ()] () ]
+        [
+          card_media ~children:[ enable ] ();
+          card_actions
+            ~children:[ card_action_buttons ~children:[ submit ] () ]
+            ();
+        ]
       ()
 end
 

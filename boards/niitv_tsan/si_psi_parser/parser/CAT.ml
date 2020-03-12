@@ -16,16 +16,17 @@ let parse bs =
       let dscrs = parse_descriptors off_6 descriptors in
       let header = parse_header header in
       let nodes =
-        [ Node.make ~offset:off_1 18 "reserved" (Bits (Int reserved))
-        ; Node.make ~offset:off_2 5 "version_number" (Dec (Int version_number))
-        ; Node.make
-            ~offset:off_3
-            1
-            "current_next_indicator"
-            (Bits (Bool current_next_ind))
-        ; Node.make ~offset:off_4 8 "section_number" (Dec (Int section_number))
-        ; Node.make ~offset:off_5 8 "last_section_number" (Dec (Int last_section_number))
-        ; Node.make ~offset:off_6 (dscrs_length off_5) "descriptors" (List dscrs)
-        ; Node.make ~offset:off_7 32 "CRC_32" (Dec (Uint32 crc32)) ]
+        [
+          Node.make ~offset:off_1 18 "reserved" (Bits (Int reserved));
+          Node.make ~offset:off_2 5 "version_number" (Dec (Int version_number));
+          Node.make ~offset:off_3 1 "current_next_indicator"
+            (Bits (Bool current_next_ind));
+          Node.make ~offset:off_4 8 "section_number" (Dec (Int section_number));
+          Node.make ~offset:off_5 8 "last_section_number"
+            (Dec (Int last_section_number));
+          Node.make ~offset:off_6 (dscrs_length off_5) "descriptors"
+            (List dscrs);
+          Node.make ~offset:off_7 32 "CRC_32" (Dec (Uint32 crc32));
+        ]
       in
       header @ nodes

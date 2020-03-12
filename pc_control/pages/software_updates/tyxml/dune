@@ -1,5 +1,3 @@
 (library
-  (name page_software_updates_tyxml)
-  (libraries ui_templates_tyxml
-             components_lab_tyxml
-             pc_control_types))
+ (name page_software_updates_tyxml)
+ (libraries ui_templates_tyxml components_lab_tyxml pc_control_types))

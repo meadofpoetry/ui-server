@@ -9,8 +9,7 @@ module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
 type event =
   [ `Bitrate of Bitrate.ext option
   | `Service of (int * Service.t) option
-  | `PIDs of (int * PID.t) list ts
-  ]
+  | `PIDs of (int * PID.t) list ts ]
 
 module Selector = struct
   let glide = "." ^ Components_lab.Glide.CSS.root
@@ -30,16 +29,20 @@ class t (elt : Dom_html.element Js.t) () =
       Tab_bar.attach @@ Element.query_selector_exn elt Selector.tab_bar
 
     val glide : Components_lab.Glide.t =
-      Components_lab.Glide.attach @@ Element.query_selector_exn elt Selector.glide
+      Components_lab.Glide.attach
+      @@ Element.query_selector_exn elt Selector.glide
 
     val general_info : Service_general_info.t =
-      Service_general_info.attach @@ Element.query_selector_exn elt Selector.general_info
+      Service_general_info.attach
+      @@ Element.query_selector_exn elt Selector.general_info
 
     val sdt_info : Service_sdt_info.t =
-      Service_sdt_info.attach @@ Element.query_selector_exn elt Selector.sdt_info
+      Service_sdt_info.attach
+      @@ Element.query_selector_exn elt Selector.sdt_info
 
     val pid_overview : Pid_overview.t =
-      Pid_overview.attach @@ Element.query_selector_exn elt Selector.pid_overview
+      Pid_overview.attach
+      @@ Element.query_selector_exn elt Selector.pid_overview
 
     val mutable pids : (int * PID.t) list ts option = None
 
@@ -50,7 +53,9 @@ class t (elt : Dom_html.element Js.t) () =
     method! initial_sync_with_dom () : unit =
       (* Attach event listeners *)
       listeners <-
-        [ Tab_bar.Lwt_js_events.changes tab_bar#root self#handle_tab_bar_change ]
+        [
+          Tab_bar.Lwt_js_events.changes tab_bar#root self#handle_tab_bar_change;
+        ]
         @ listeners;
       super#initial_sync_with_dom ()
 
@@ -112,4 +117,6 @@ class t (elt : Dom_html.element Js.t) () =
 let attach elt = new t (elt :> Dom_html.element Js.t) ()
 
 let make ?a ?pids ?info ?bitrate ~control () =
-  D.create ?a ?pids ?info ?bitrate ~control () |> Tyxml_js.To_dom.of_div |> attach
+  D.create ?a ?pids ?info ?bitrate ~control ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach

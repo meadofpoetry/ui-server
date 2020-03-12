@@ -7,56 +7,41 @@ let ( % ) f g x = f (g x)
 let error_to_log_entry id (error : Error.t) =
   let open Stream.Log_message in
   let message =
-    if error.is_t2mi
-    then ""
+    if error.is_t2mi then ""
     else
       match Ts_error.etr290_error_of_code error.err_code with
       | None -> "Unknown MPEG-TS error"
       | Some e ->
-          Printf.sprintf
-            "%s %s"
+          Printf.sprintf "%s %s"
             (MPEG_TS.ETR290_error.number e)
             (MPEG_TS.ETR290_error.name e)
   in
   let pid = { typ = None; id = error.pid } in
-  make
-    ~time:error.timestamp
-    ~level:Err
-    ~message
+  make ~time:error.timestamp ~level:Err ~message
     ~info:(Ts_error.Info.of_error error)
-    ~stream:id
-    ~pid
-    ()
+    ~stream:id ~pid ()
 
 let extended_error_to_log_entry id (error : Error.t_ext) =
   let open Stream.Log_message in
   let message =
-    if error.is_t2mi
-    then ""
+    if error.is_t2mi then ""
     else
       match Ts_error.etr290_error_of_code error.err_code with
       | None -> "Unknown MPEG-TS error"
       | Some e ->
-          Printf.sprintf
-            "%s %s"
+          Printf.sprintf "%s %s"
             (MPEG_TS.ETR290_error.number e)
             (MPEG_TS.ETR290_error.name e)
   in
   let service, typ =
     match snd error.pid with
-    | None -> None, None
-    | Some pid -> pid.service_name, Some (MPEG_TS.PID.Type.to_string pid.typ)
+    | None -> (None, None)
+    | Some pid -> (pid.service_name, Some (MPEG_TS.PID.Type.to_string pid.typ))
   in
   let pid = { typ; id = fst error.pid } in
-  make
-    ?service
-    ~time:error.timestamp
-    ~level:Warn
-    ~message
+  make ?service ~time:error.timestamp ~level:Warn ~message
     ~info:(Ts_error.Info.of_error error)
-    ~stream:id
-    ~pid
-    ()
+    ~stream:id ~pid ()
 
 let log_of_errors event source : Stream.Log_message.t list React.event =
   let filter l =
@@ -77,28 +62,23 @@ let log_of_device (control : int) errors state =
   let make = make ~node:(Board control) in
   let state =
     React.E.fmap (function
-        | `No_response | `Init -> None
-        | `Detect ->
-            Some
-              [ make
-                  ~time:(Ptime_clock.now ())
-                  ~level:Info
-                  ~message:"Пытаюсь обнаружить плату"
-                  ~info:""
-                  ()
-              ]
-        | `Fine ->
-            let msg =
-              make
-                ~time:(Ptime_clock.now ())
-                ~level:Info
-                ~message:
-                  "Восстановление после внутреннего \
-                   сбоя"
-                ~info:""
-                ()
-            in
-            Some [ msg ])
+      | `No_response | `Init -> None
+      | `Detect ->
+          Some
+            [
+              make ~time:(Ptime_clock.now ()) ~level:Info
+                ~message:"Пытаюсь обнаружить плату"
+                ~info:"" ();
+            ]
+      | `Fine ->
+          let msg =
+            make ~time:(Ptime_clock.now ()) ~level:Info
+              ~message:
+                "Восстановление после \
+                 внутреннего сбоя"
+              ~info:"" ()
+          in
+          Some [ msg ])
     @@ React.S.changes state
   in
   let errors =
@@ -111,18 +91,16 @@ let log_of_device (control : int) errors state =
               | Hardware -> "Hardware error"
               | Protocol -> "Protocol error"
             in
-            let info = Printf.sprintf "%s: code = %d, count = %d" prefix e.code e.count in
+            let info =
+              Printf.sprintf "%s: code = %d, count = %d" prefix e.code e.count
+            in
             let info =
               match e.param with
               | None -> info
               | Some p -> Printf.sprintf "%s, param = %d" info p
             in
-            make
-              ~time:(Ptime_clock.now ())
-              ~level:Fatal
-              ~message:"Внутренний сбой"
-              ~info
-              ())
+            make ~time:(Ptime_clock.now ()) ~level:Fatal
+              ~message:"Внутренний сбой" ~info ())
           x)
       errors
   in
@@ -142,8 +120,7 @@ let log_of_streams (control : int) event source =
             |> function
             | [] -> None
             | l -> Some l)
-          []
-          event
+          [] event
   in
   React.S.diff
     (fun cur old ->
@@ -154,21 +131,19 @@ let log_of_streams (control : int) event source =
       let time = Ptime_clock.now () in
       (* FIXME should be time from status *)
       let make ~message ~level (s : Stream.t) =
-        make
-          ~time
-          ~message
-          ~level
+        make ~time ~message ~level
           ~info:(Stream.Source.to_string s.source.info)
-          ~stream:s.id
-          ?input:(Stream.get_input s)
-          ~node:(Board control)
-          ()
+          ~stream:s.id ?input:(Stream.get_input s) ~node:(Board control) ()
       in
       let found' =
-        List.map (make ~level:Info ~message:"Обнаружен поток") found
+        List.map
+          (make ~level:Info ~message:"Обнаружен поток")
+          found
       in
       let lost' =
-        List.map (make ~level:Err ~message:"Пропадание потока") lost
+        List.map
+          (make ~level:Err ~message:"Пропадание потока")
+          lost
       in
       found' @ lost')
     s

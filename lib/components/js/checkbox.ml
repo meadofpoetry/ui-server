@@ -6,14 +6,10 @@ module R = Make (Tyxml_js.R.Xml) (Tyxml_js.R.Svg) (Tyxml_js.R.Html)
 
 let ( >>= ) = Lwt.bind
 
-type transition_state =
-  | Init
-  | Checked
-  | Unchecked
-  | Indeterminate
+type transition_state = Init | Checked | Unchecked | Indeterminate
 
 let equal_transition_state (a : transition_state as 'a) (b : 'a) : bool =
-  match a, b with
+  match (a, b) with
   | Init, Init -> true
   | Checked, Checked -> true
   | Unchecked, Unchecked -> true
@@ -23,7 +19,7 @@ let equal_transition_state (a : transition_state as 'a) (b : 'a) : bool =
 module Const = struct
   let anim_end_latch_s = 0.25
 
-  let cb_proto_props = ["checked"; "indeterminate"]
+  let cb_proto_props = [ "checked"; "indeterminate" ]
 end
 
 module Attr = struct
@@ -66,13 +62,14 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
     method! initial_sync_with_dom () : unit =
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          [ changes input_elt (fun _ _ ->
+          [
+            changes input_elt (fun _ _ ->
                 self#transition_check_state ();
-                self#notify_change ())
-          ; seq_loop
+                self#notify_change ());
+            seq_loop
               (make_event Dom_html.Event.animationend)
-              super#root
-              self#handle_animation_end ]
+              super#root self#handle_animation_end;
+          ]
           @ listeners);
       super#initial_sync_with_dom ()
 
@@ -100,7 +97,8 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
     method set_indeterminate (x : bool) : unit =
       (Js.Unsafe.coerce input_elt)##.indeterminate := Js.bool x
 
-    method indeterminate : bool = Js.to_bool (Js.Unsafe.coerce input_elt)##.indeterminate
+    method indeterminate : bool =
+      Js.to_bool (Js.Unsafe.coerce input_elt)##.indeterminate
 
     method disabled : bool = Js.to_bool input_elt##.disabled
 
@@ -111,11 +109,7 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
     method checked : bool = Js.to_bool input_elt##.checked
 
     method toggle ?(notify = false) ?(force : bool option) () : unit =
-      let v =
-        match force with
-        | None -> not self#checked
-        | Some x -> x
-      in
+      let v = match force with None -> not self#checked | Some x -> x in
       input_elt##.checked := Js.bool v;
       if notify then Lwt.async self#notify_change
 
@@ -124,89 +118,78 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
     method ripple : Ripple.t option = ripple
 
     method private notify_change () : unit Lwt.t =
-      match on_change with
-      | None -> Lwt.return_unit
-      | Some f -> f (self :> t)
+      match on_change with None -> Lwt.return_unit | Some f -> f (self :> t)
 
     method private create_ripple () : Ripple.t =
       let adapter = Ripple.make_default_adapter super#root in
       let is_unbounded () = true in
       let is_surface_active () = Element.matches input_elt ":active" in
       let adapter =
-        { adapter with
-          event_target = Element.coerce input_elt
-        ; is_unbounded
-        ; is_surface_active }
+        {
+          adapter with
+          event_target = Element.coerce input_elt;
+          is_unbounded;
+          is_surface_active;
+        }
       in
       new Ripple.t adapter ()
 
     method private force_layout () : unit = ignore super#root##.offsetWidth
 
-    method private handle_animation_end
-        (_ : Dom_html.animationEvent Js.t)
-        (_ : unit Lwt.t)
-        : unit Lwt.t =
-      if enable_animationend_handler
-      then (
+    method private handle_animation_end (_ : Dom_html.animationEvent Js.t)
+        (_ : unit Lwt.t) : unit Lwt.t =
+      if enable_animationend_handler then (
         let t =
           Lwt.catch
             (fun () ->
-              Js_of_ocaml_lwt.Lwt_js.sleep Const.anim_end_latch_s
-              >>= fun () ->
+              Js_of_ocaml_lwt.Lwt_js.sleep Const.anim_end_latch_s >>= fun () ->
               Option.iter super#remove_class cur_animation_class;
               enable_animationend_handler <- false;
               Lwt.return_unit)
-            (function
-              | Lwt.Canceled -> Lwt.return_unit
-              | exn -> Lwt.fail exn)
+            (function Lwt.Canceled -> Lwt.return_unit | exn -> Lwt.fail exn)
         in
         anim_end_latch_timer <- Some t;
-        t)
+        t )
       else Lwt.return_unit
     (** Handles the `animationend` event for the checkbox *)
 
     method private transition_check_state () : unit =
       let prev = cur_check_state in
       let cur = self#determine_check_state () in
-      if not (equal_transition_state prev cur)
-      then (
+      if not (equal_transition_state prev cur) then (
         self#update_aria_checked ();
         (* Check to ensure that there isn't a previously existing animation class,
            in case for example the user interacted with the checkbox before
            then animation has finished *)
-        (match cur_animation_class with
+        ( match cur_animation_class with
         | None -> ()
         | Some c ->
             Option.iter Lwt.cancel anim_end_latch_timer;
             anim_end_latch_timer <- None;
             self#force_layout ();
-            super#remove_class c);
+            super#remove_class c );
         cur_animation_class <- self#get_transition_animation_class ~prev cur;
         cur_check_state <- cur;
         (* Check for parentNode so that animations are only run when
            then element is attached to the DOM *)
         match
-          ( Js.Opt.to_option super#root##.parentNode
-          , Js.Opt.test super#root##.offsetParent
-          , cur_animation_class )
+          ( Js.Opt.to_option super#root##.parentNode,
+            Js.Opt.test super#root##.offsetParent,
+            cur_animation_class )
         with
         | None, _, _ | _, false, _ | _, _, None -> ()
         | Some _, true, Some c ->
             super#add_class c;
-            enable_animationend_handler <- true)
+            enable_animationend_handler <- true )
 
     method private determine_check_state () : transition_state =
-      if self#indeterminate
-      then Indeterminate
-      else if self#checked
-      then Checked
+      if self#indeterminate then Indeterminate
+      else if self#checked then Checked
       else Unchecked
 
-    method private get_transition_animation_class
-        ~(prev : transition_state)
-        (cur : transition_state)
-        : string option =
-      match prev, cur with
+    method private get_transition_animation_class ~(prev : transition_state)
+        (cur : transition_state) : string option =
+      match (prev, cur) with
       | Init, Unchecked -> None
       | Init, Checked -> Some CSS.anim_indeterminate_checked
       | Init, _ -> Some CSS.anim_indeterminate_unchecked
@@ -219,8 +202,8 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
 
     method private update_aria_checked () : unit =
       (* Ensure aria-checked is set to mixed if checkbox is in indeterminate state *)
-      if self#indeterminate
-      then Element.set_attribute input_elt Attr.aria_checked "mixed"
+      if self#indeterminate then
+        Element.set_attribute input_elt Attr.aria_checked "mixed"
       else
         (* The on/off state does not need to keep track of aria-checked, since
            the screenreader uses the checked property on the checkbox element *)
@@ -232,7 +215,7 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
       let install control_state =
         let control_state = Js.string control_state in
         let desc = obj##getOwnPropertyDescriptor cb_proto control_state in
-        match Js.Optdef.test desc, Js.to_string @@ Js.typeof desc##.set with
+        match (Js.Optdef.test desc, Js.to_string @@ Js.typeof desc##.set) with
         | true, "function" ->
             let native_cb_desc =
               object%js
@@ -258,7 +241,7 @@ class t ?on_change ?(indeterminate = false) (elt : Dom_html.element Js.t) () =
       let uninstall control_state =
         let control_state = Js.string control_state in
         let desc = obj##getOwnPropertyDescriptor cb_proto control_state in
-        match Js.Optdef.test desc, Js.to_string @@ Js.typeof desc##.set with
+        match (Js.Optdef.test desc, Js.to_string @@ Js.typeof desc##.set) with
         | true, "function" -> obj##defineProperty input_elt control_state desc
         | _, _ -> ()
       in

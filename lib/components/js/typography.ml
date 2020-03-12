@@ -27,24 +27,24 @@ module Text = struct
         let rec aux = function
           | [] -> None
           | hd :: tl -> (
-            match BEM.split hd with
-            | Ok (b, None, Some font) when String.equal b CSS.root -> (
-              match font with
-              | "headline1" -> Some Headline_1
-              | "headline2" -> Some Headline_2
-              | "headline3" -> Some Headline_3
-              | "headline4" -> Some Headline_4
-              | "headline5" -> Some Headline_5
-              | "headline6" -> Some Headline_6
-              | "subtitle1" -> Some Subtitle_1
-              | "subtitle2" -> Some Subtitle_2
-              | "body1" -> Some Body_1
-              | "body2" -> Some Body_2
-              | "button" -> Some Button
-              | "caption" -> Some Caption
-              | "overline" -> Some Overline
-              | _ -> aux tl)
-            | _ -> aux tl)
+              match BEM.split hd with
+              | Ok (b, None, Some font) when String.equal b CSS.root -> (
+                  match font with
+                  | "headline1" -> Some Headline_1
+                  | "headline2" -> Some Headline_2
+                  | "headline3" -> Some Headline_3
+                  | "headline4" -> Some Headline_4
+                  | "headline5" -> Some Headline_5
+                  | "headline6" -> Some Headline_6
+                  | "subtitle1" -> Some Subtitle_1
+                  | "subtitle2" -> Some Subtitle_2
+                  | "body1" -> Some Body_1
+                  | "body2" -> Some Body_2
+                  | "button" -> Some Button
+                  | "caption" -> Some Caption
+                  | "overline" -> Some Overline
+                  | _ -> aux tl )
+              | _ -> aux tl )
         in
         aux @@ Element.classes super#root
 
@@ -52,7 +52,8 @@ module Text = struct
         remove super#root;
         super#add_class @@ font_to_class x
 
-      method text : string = Js.to_string @@ (Js.Unsafe.coerce super#root)##.innerText
+      method text : string =
+        Js.to_string @@ (Js.Unsafe.coerce super#root)##.innerText
 
       method set_text (s : string) : unit =
         super#root##.textContent := Js.some @@ Js.string s
@@ -61,8 +62,12 @@ module Text = struct
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
 
   let make ?classes ?a ?font ?text () =
-    D.typography ?classes ?a ?font ?text () |> Tyxml_js.To_dom.of_element |> attach
+    D.typography ?classes ?a ?font ?text ()
+    |> Tyxml_js.To_dom.of_element
+    |> attach
 
   let make_r ?classes ?a ?font ?text () =
-    R.typography ?classes ?a ?font ?text () |> Tyxml_js.To_dom.of_element |> attach
+    R.typography ?classes ?a ?font ?text ()
+    |> Tyxml_js.To_dom.of_element
+    |> attach
 end

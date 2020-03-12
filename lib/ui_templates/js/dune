@@ -1,4 +1,5 @@
 (library
-  (name ui_templates)
-  (libraries js_of_ocaml components_lab ui_templates_tyxml)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name ui_templates)
+ (libraries js_of_ocaml components_lab ui_templates_tyxml)
+ (preprocess
+  (pps js_of_ocaml-ppx)))

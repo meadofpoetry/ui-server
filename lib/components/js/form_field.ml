@@ -28,11 +28,12 @@ module Selector = struct
 end
 
 class ['a] t
-  ~(input : [`Attach of Dom_html.element Js.t -> (#input_widget as 'a) | `Widget of 'a])
-  (elt : Dom_html.element Js.t)
-  () =
+  ~(input :
+     [ `Attach of Dom_html.element Js.t -> (#input_widget as 'a)
+     | `Widget of 'a ]) (elt : Dom_html.element Js.t) () =
   object (self)
-    val label : Dom_html.element Js.t option = Element.query_selector elt Selector.label
+    val label : Dom_html.element Js.t option =
+      Element.query_selector elt Selector.label
 
     val input : #input_widget as 'a =
       match input with
@@ -44,11 +45,12 @@ class ['a] t
     inherit Widget.t elt () as super
 
     method! initial_sync_with_dom () : unit =
-      (match label with
+      ( match label with
       | None -> ()
       | Some label ->
           listeners <-
-            Js_of_ocaml_lwt.Lwt_js_events.([clicks label self#handle_click] @ listeners));
+            Js_of_ocaml_lwt.Lwt_js_events.(
+              [ clicks label self#handle_click ] @ listeners) );
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =
@@ -62,7 +64,9 @@ class ['a] t
       match label with
       | None -> ""
       | Some label ->
-          Js.Opt.get (Js.Opt.map label##.textContent Js.to_string) (fun () -> "")
+          Js.Opt.get
+            (Js.Opt.map label##.textContent Js.to_string)
+            (fun () -> "")
 
     method set_label (s : string) =
       match label with

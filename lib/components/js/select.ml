@@ -8,9 +8,10 @@ let ( % ) f g x = f (g x)
 
 let ( >>= ) = Lwt.bind
 
-type 'a custom_validation =
-  { of_string : string -> ('a, string) result
-  ; to_string : 'a -> string }
+type 'a custom_validation = {
+  of_string : string -> ('a, string) result;
+  to_string : 'a -> string;
+}
 
 type 'a validation =
   | Integer : int validation
@@ -30,18 +31,13 @@ let parse_valid (type a) (v : a validation) (s : string) : a option =
   | Integer -> int_of_string_opt s
   | Float -> float_of_string_opt s
   | Text -> Some s
-  | Custom c -> (
-    match c.of_string s with
-    | Ok x -> Some x
-    | Error _ -> None)
+  | Custom c -> ( match c.of_string s with Ok x -> Some x | Error _ -> None )
 
 let find_mapi f l =
   let rec aux f i = function
     | [] -> None
     | x :: l' -> (
-      match f i x with
-      | Some _ as res -> res
-      | None -> aux f (i + 1) l')
+        match f i x with Some _ as res -> res | None -> aux f (i + 1) l' )
   in
   aux f 0 l
 
@@ -62,7 +58,7 @@ module Attr = struct
 
   let enhanced_value = "data-value"
 
-  let validation_attr_whitelist = [required; aria_required]
+  let validation_attr_whitelist = [ required; aria_required ]
 end
 
 module Const = struct
@@ -130,7 +126,10 @@ module Icon = struct
         (* Attach event listeners *)
         listeners <-
           Js_of_ocaml_lwt.Lwt_js_events.(
-            [clicks super#root self#handle_click; keydowns super#root self#handle_keydown]
+            [
+              clicks super#root self#handle_click;
+              keydowns super#root self#handle_keydown;
+            ]
             @ listeners);
         super#initial_sync_with_dom ()
 
@@ -147,21 +146,21 @@ module Icon = struct
         match saved_tab_index with
         | None -> ()
         | Some tabindex ->
-            if x
-            then (
+            if x then (
               Element.set_attribute super#root "tabindex" "-1";
-              Element.remove_attribute super#root "role")
+              Element.remove_attribute super#root "role" )
             else (
               Element.set_attribute super#root "tabindex" tabindex;
-              Element.set_attribute super#root "role" Attr.icon_role)
+              Element.set_attribute super#root "role" Attr.icon_role )
 
       (* Private methods *)
-      method private notify_action () : unit = super#emit ~should_bubble:true Event.icon
+      method private notify_action () : unit =
+        super#emit ~should_bubble:true Event.icon
 
       method private handle_keydown e _ : unit Lwt.t =
-        (match Dom_html.Keyboard_code.of_event e with
+        ( match Dom_html.Keyboard_code.of_event e with
         | Enter -> self#notify_action ()
-        | _ -> ());
+        | _ -> () );
         Lwt.return_unit
 
       method private handle_click _ _ : unit Lwt.t =
@@ -194,16 +193,17 @@ module Helper_text = struct
       method set_validation (x : bool) : unit =
         super#toggle_class ~force:x CSS.Helper_text.validation_msg
 
-      method show_to_screen_reader () : unit = super#remove_attribute Attr.aria_hidden
+      method show_to_screen_reader () : unit =
+        super#remove_attribute Attr.aria_hidden
 
       method set_validity (is_valid : bool) : unit =
         let needs_display = self#validation && not is_valid in
-        if needs_display
-        then super#set_attribute "role" "alert"
+        if needs_display then super#set_attribute "role" "alert"
         else super#remove_attribute "role";
         if (not self#persistent) && not needs_display then self#hide ()
 
-      method private hide () : unit = super#set_attribute Attr.aria_hidden "true"
+      method private hide () : unit =
+        super#set_attribute Attr.aria_hidden "true"
     end
 
   let attach (elt : #Dom_html.element Js.t) : t = new t (Element.coerce elt) ()
@@ -218,22 +218,19 @@ end
 
 type target =
   | Native of Dom_html.selectElement Js.t
-  | Enhanced of
-      { text : Dom_html.element Js.t
-      ; menu : Menu.t
-      ; hidden_input : Dom_html.inputElement Js.t option }
+  | Enhanced of {
+      text : Dom_html.element Js.t;
+      menu : Menu.t;
+      hidden_input : Dom_html.inputElement Js.t option;
+    }
 
 let target_element = function
   | Native x -> Element.coerce x
-  | Enhanced {text; _} -> text
+  | Enhanced { text; _ } -> text
 
-class ['a] t
-  ?(on_change : ('a t -> unit) option)
-  ?(helper_text : Helper_text.t option)
-  ?(validation : 'a validation option)
-  ?value
-  (elt : Dom_html.element Js.t)
-  () =
+class ['a] t ?(on_change : ('a t -> unit) option)
+  ?(helper_text : Helper_text.t option) ?(validation : 'a validation option)
+  ?value (elt : Dom_html.element Js.t) () =
   let native_control : Dom_html.selectElement Js.t option =
     Option.map (fun x ->
         match Js.to_string x##.tagName with
@@ -242,15 +239,14 @@ class ['a] t
             let err =
               Printf.sprintf
                 "%s: native control should have a `select` tag, but got `%s`"
-                CSS.root
-                (String.lowercase_ascii s)
+                CSS.root (String.lowercase_ascii s)
             in
             failwith err)
     @@ Element.query_selector elt Selector.native_control
   in
   let selected_text = Element.query_selector elt Selector.selected_text in
   let target =
-    match native_control, selected_text with
+    match (native_control, selected_text) with
     | Some x, _ -> Native x
     | None, Some text ->
         let is_disabled = Element.has_class elt CSS.disabled in
@@ -262,9 +258,9 @@ class ['a] t
               | s ->
                   let err =
                     Printf.sprintf
-                      "%s: hidden input should have an `input` tag, but got `%s`"
-                      CSS.root
-                      (String.lowercase_ascii s)
+                      "%s: hidden input should have an `input` tag, but got \
+                       `%s`"
+                      CSS.root (String.lowercase_ascii s)
                   in
                   failwith err)
           @@ Element.query_selector elt Selector.hidden_input
@@ -275,34 +271,35 @@ class ['a] t
         menu#set_anchor_element elt;
         menu#set_anchor_corner Bottom_start;
         menu#set_wrap_focus false;
-        Enhanced {text; menu; hidden_input}
+        Enhanced { text; menu; hidden_input }
     | None, None ->
         let err =
           Printf.sprintf
-            "%s: missing required element, one of the following selectors must be \
-             present: %s or %s"
-            CSS.root
-            CSS.native_control
-            CSS.selected_text
+            "%s: missing required element, one of the following selectors must \
+             be present: %s or %s"
+            CSS.root CSS.native_control CSS.selected_text
         in
         failwith err
   in
   object (self)
     val line_ripple : Line_ripple.t option =
-      Option.map Line_ripple.attach @@ Element.query_selector elt Selector.line_ripple
+      Option.map Line_ripple.attach
+      @@ Element.query_selector elt Selector.line_ripple
 
     val notched_outline : Notched_outline.t option =
-      Option.map Notched_outline.attach @@ Element.query_selector elt Selector.outline
+      Option.map Notched_outline.attach
+      @@ Element.query_selector elt Selector.outline
 
     val floating_label : Floating_label.t option =
-      Option.map Floating_label.attach @@ Element.query_selector elt Selector.label
+      Option.map Floating_label.attach
+      @@ Element.query_selector elt Selector.label
 
     val leading_icon =
       Option.map (fun x ->
           Element.add_class elt CSS.with_leading_icon;
-          (match target with
-          | Enhanced {menu; _} -> menu#add_class CSS.with_leading_icon
-          | Native _ -> ());
+          ( match target with
+          | Enhanced { menu; _ } -> menu#add_class CSS.with_leading_icon
+          | Native _ -> () );
           Icon.attach x)
       @@ Element.query_selector elt Selector.leading_icon
 
@@ -310,9 +307,12 @@ class ['a] t
       match helper_text with
       | Some x -> Some x
       | None -> (
-        match Element.get_attribute (target_element target) Attr.aria_controls with
-        | None -> None
-        | Some id -> Option.map Helper_text.attach @@ Dom_html.getElementById_opt id)
+          match
+            Element.get_attribute (target_element target) Attr.aria_controls
+          with
+          | None -> None
+          | Some id ->
+              Option.map Helper_text.attach @@ Dom_html.getElementById_opt id )
 
     val mutable is_menu_open = false
 
@@ -328,7 +328,8 @@ class ['a] t
 
     method! init () : unit =
       Option.iter self#set_value value;
-      if not @@ super#has_class CSS.outlined then ripple_ <- Some (self#create_ripple ());
+      if not @@ super#has_class CSS.outlined then
+        ripple_ <- Some (self#create_ripple ());
       (* The required state need to be sync'd before the mutation observer is added *)
       self#initial_sync_required_state ();
       self#add_mutation_observer_for_required ();
@@ -338,73 +339,75 @@ class ['a] t
       (* Attach event listeners *)
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
-          [ changes self#target_element (fun _ _ ->
+          [
+            changes self#target_element (fun _ _ ->
                 self#handle_change ~did_change:true ();
-                Lwt.return_unit)
-          ; focuses self#target_element self#handle_focus
-          ; blurs self#target_element self#handle_blur
-          ; clicks self#target_element self#handle_click ]
+                Lwt.return_unit);
+            focuses self#target_element self#handle_focus;
+            blurs self#target_element self#handle_blur;
+            clicks self#target_element self#handle_click;
+          ]
           @ listeners);
-      (match target with
+      ( match target with
       | Native _ -> ()
-      | Enhanced {text; menu; hidden_input} -> (
+      | Enhanced { text; menu; hidden_input } -> (
           listeners <-
             Js_of_ocaml_lwt.Lwt_js_events.(
-              [ keydowns text self#handle_keydown
-              ; Menu.Lwt_js_events.closes menu#root (fun e t ->
-                    self#handle_menu_closed e t
-                    >>= fun () ->
+              [
+                keydowns text self#handle_keydown;
+                Menu.Lwt_js_events.closes menu#root (fun e t ->
+                    self#handle_menu_closed e t >>= fun () ->
                     (* _is_menu_open is used to track the state of the menu opening
                        or closing since the menu#reveal function will return false
                        if the menu is still closing and this method listens to the
                        closed event which occurs after the menu is already closed. *)
                     is_menu_open <- false;
                     Element.remove_attribute text Attr.aria_expanded;
-                    if Dom_html.document##.activeElement != Js.some text
-                    then self#handle_blur (e :> Dom_html.event Js.t) t
-                    else Lwt.return_unit)
-              ; Menu.Lwt_js_events.opens menu#root (fun e t ->
-                    self#handle_menu_opened e t
-                    >>= fun () ->
+                    if Dom_html.document##.activeElement != Js.some text then
+                      self#handle_blur (e :> Dom_html.event Js.t) t
+                    else Lwt.return_unit);
+                Menu.Lwt_js_events.opens menu#root (fun e t ->
+                    self#handle_menu_opened e t >>= fun () ->
                     match menu#items with
                     | [] -> Lwt.return_unit
                     | items ->
                         (* Menu should open to the last selected element, should open to
-                      first menu item otherwise *)
+                           first menu item otherwise *)
                         let focus_index =
                           match selected_index with
                           | None -> 0
                           | Some x when x < 0 -> 0
                           | Some x -> x
                         in
-                        (match List.nth_opt items focus_index with
+                        ( match List.nth_opt items focus_index with
                         | None -> ()
-                        | Some x -> x##focus);
-                        Lwt.return_unit)
-              ; Menu.Lwt_js_events.selects menu#root (fun e _ ->
-                    (match Js.Opt.to_option e##.detail with
+                        | Some x -> x##focus );
+                        Lwt.return_unit);
+                Menu.Lwt_js_events.selects menu#root (fun e _ ->
+                    ( match Js.Opt.to_option e##.detail with
                     | None -> ()
-                    | Some d -> selected_index <- Some d##.index);
-                    Lwt.return_unit) ]
+                    | Some d -> selected_index <- Some d##.index );
+                    Lwt.return_unit);
+              ]
               @ listeners);
           match
-            ( hidden_input
-            , Option.map (fun x -> Js.to_string x##.value) hidden_input
-            , Element.query_selector menu#root Selector.selected_item )
+            ( hidden_input,
+              Option.map (fun x -> Js.to_string x##.value) hidden_input,
+              Element.query_selector menu#root Selector.selected_item )
           with
           (* If the hidden input already has a value, use it to restore the
-            select's value. This can happen e.g. if the user goes back or
-            (in some browsers) refreshes the page. *)
+             select's value. This can happen e.g. if the user goes back or
+             (in some browsers) refreshes the page. *)
           | None, Some s, _ when String.length s > 0 -> self#set_value_ s
           (* If an element is selected, the select should set the initial selected text. *)
           | _, _, Some _ -> self#set_value_as_string self#value_as_string
-          | _ -> ()));
+          | _ -> () ) );
       self#handle_change ~did_change:false ();
       (* Initially sync floating label *)
-      (match super#has_class CSS.disabled, self#native_control with
+      ( match (super#has_class CSS.disabled, self#native_control) with
       | true, _ -> self#set_disabled true
       | _, Some x when x##.disabled = Js._true -> self#set_disabled true
-      | _ -> ());
+      | _ -> () );
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
@@ -422,9 +425,9 @@ class ['a] t
       Option.iter Widget.destroy floating_label;
       Option.iter Widget.destroy leading_icon;
       Option.iter Widget.destroy helper_text;
-      (match target with
+      ( match target with
       | Native _ -> ()
-      | Enhanced {menu; _} -> menu#destroy ());
+      | Enhanced { menu; _ } -> menu#destroy () );
       (* Destroy other objects *)
       Option.iter (fun x -> x##disconnect) validation_observer;
       validation_observer <- None;
@@ -438,7 +441,7 @@ class ['a] t
       | Native x ->
           let idx = x##.selectedIndex in
           if idx >= 0 then Some idx else None
-      | Enhanced {menu; _} -> (
+      | Enhanced { menu; _ } -> (
           let elt = Element.query_selector menu#root Selector.selected_item in
           match elt with
           | None -> None
@@ -446,7 +449,7 @@ class ['a] t
               (* XXX maybe just read menu#selected? *)
               find_mapi
                 (fun i item -> if Element.equal elt item then Some i else None)
-                menu#items)
+                menu#items )
 
     method set_selected_index (i : int) : unit =
       self#set_selected_index_ i;
@@ -456,17 +459,17 @@ class ['a] t
     method required : bool =
       match target with
       | Native x -> Js.to_bool (Js.Unsafe.coerce x)##.required
-      | Enhanced {text; _} -> (
-        match Element.get_attribute text Attr.aria_required with
-        | Some "true" -> true
-        | _ -> false)
+      | Enhanced { text; _ } -> (
+          match Element.get_attribute text Attr.aria_required with
+          | Some "true" -> true
+          | _ -> false )
 
     method set_required (is_required : bool) : unit =
       match target with
       | Native x -> x##.required := Js.bool is_required
-      | Enhanced {text; _} ->
-          if is_required
-          then Element.set_attribute text Attr.aria_required "true"
+      | Enhanced { text; _ } ->
+          if is_required then
+            Element.set_attribute text Attr.aria_required "true"
           else Element.remove_attribute text Attr.aria_required
 
     method disabled : bool =
@@ -478,13 +481,16 @@ class ['a] t
 
     method set_disabled (is_disabled : bool) : unit =
       super#toggle_class ~force:is_disabled CSS.disabled;
-      (match target with
+      ( match target with
       | Native x -> x##.disabled := Js.bool is_disabled
-      | Enhanced {text; hidden_input; _} ->
+      | Enhanced { text; hidden_input; _ } ->
           let tabindex = if is_disabled then "-1" else "0" in
           Element.set_attribute text "tabindex" tabindex;
-          Element.set_attribute text Attr.aria_disabled (string_of_bool is_disabled);
-          Option.iter (fun x -> x##.disabled := Js.bool is_disabled) hidden_input);
+          Element.set_attribute text Attr.aria_disabled
+            (string_of_bool is_disabled);
+          Option.iter
+            (fun x -> x##.disabled := Js.bool is_disabled)
+            hidden_input );
       self#close_menu ();
       match leading_icon with
       | None -> ()
@@ -493,13 +499,13 @@ class ['a] t
     method value_as_string : string =
       match target with
       | Native x -> Js.to_string x##.value
-      | Enhanced {menu; _} -> (
-        match Element.query_selector menu#root Selector.selected_item with
-        | None -> ""
-        | Some item -> (
-          match Element.get_attribute item Attr.enhanced_value with
+      | Enhanced { menu; _ } -> (
+          match Element.query_selector menu#root Selector.selected_item with
           | None -> ""
-          | Some s -> s))
+          | Some item -> (
+              match Element.get_attribute item Attr.enhanced_value with
+              | None -> ""
+              | Some s -> s ) )
 
     method value : 'a option =
       match validation with
@@ -521,19 +527,21 @@ class ['a] t
       match target with
       | Native x -> Js.to_bool (Js.Unsafe.coerce x)##checkValidity
       | Enhanced _ ->
-          if super#has_class CSS.required && (not @@ super#has_class CSS.disabled)
+          if
+            super#has_class CSS.required && (not @@ super#has_class CSS.disabled)
           then
-            match selected_index, self#value_as_string with
+            match (selected_index, self#value_as_string) with
             | None, _ -> false
             | Some x, "" when x > 0 -> false
             | _ -> true
           else true
 
     method set_valid (is_valid : bool) : unit =
-      (match target with
+      ( match target with
       | Native _ -> ()
-      | Enhanced {text; _} ->
-          Element.set_attribute text Attr.aria_invalid @@ string_of_bool (not is_valid));
+      | Enhanced { text; _ } ->
+          Element.set_attribute text Attr.aria_invalid
+          @@ string_of_bool (not is_valid) );
       super#toggle_class ~force:(not is_valid) CSS.invalid
 
     method clear () : unit =
@@ -554,7 +562,8 @@ class ['a] t
       | Enhanced _ -> (* TODO implement *) ()
 
     (* Private methods. *)
-    method private native_control : Dom_html.selectElement Js.t option = native_control
+    method private native_control : Dom_html.selectElement Js.t option =
+      native_control
 
     method private target_element = target_element target
 
@@ -570,10 +579,9 @@ class ['a] t
       let value = self#value_as_string in
       let has_value = String.length value > 0 in
       self#notch_outline has_value;
-      if not @@ super#has_class CSS.focused
-      then Option.iter (Fun.flip Floating_label.float has_value) floating_label;
-      if did_change
-      then (
+      if not @@ super#has_class CSS.focused then
+        Option.iter (Fun.flip Floating_label.float has_value) floating_label;
+      if did_change then (
         let detail =
           object%js
             val index = self#selected_index
@@ -584,10 +592,9 @@ class ['a] t
         super#emit ~should_bubble:true ~detail Event.change;
         Option.iter (fun f -> f (self :> 'a t)) on_change;
         let is_valid = self#is_valid in
-        if super#has_class CSS.required
-        then (
+        if super#has_class CSS.required then (
           self#set_valid is_valid;
-          Option.iter (fun x -> x#set_validity is_valid) helper_text))
+          Option.iter (fun x -> x#set_validity is_valid) helper_text ) )
 
     method private handle_focus _ _ : unit Lwt.t =
       super#add_class CSS.focused;
@@ -598,22 +605,20 @@ class ['a] t
       Lwt.return_unit
 
     method private handle_blur _ _ : unit Lwt.t =
-      if not self#is_menu_open
-      then (
+      if not self#is_menu_open then (
         super#remove_class CSS.focused;
         self#handle_change ~did_change:false ();
         Option.iter Line_ripple.deactivate line_ripple;
-        if super#has_class CSS.required
-        then (
+        if super#has_class CSS.required then (
           let is_valid = self#is_valid in
           self#set_valid is_valid;
-          Option.iter (fun x -> x#set_validity is_valid) helper_text));
+          Option.iter (fun x -> x#set_validity is_valid) helper_text ) );
       Lwt.return_unit
 
-    method private handle_click (evt : Dom_html.mouseEvent Js.t) _ : unit Lwt.t =
+    method private handle_click (evt : Dom_html.mouseEvent Js.t) _ : unit Lwt.t
+        =
       Option.iter (fun x -> x##focus) selected_text;
-      if not self#is_menu_open
-      then (
+      if not self#is_menu_open then (
         let rect = (Dom_html.eventTarget evt)##getBoundingClientRect in
         let client_x =
           match Js.Optdef.test (Js.Unsafe.coerce evt)##.touches with
@@ -625,33 +630,33 @@ class ['a] t
         in
         let normalized = float_of_int client_x -. rect##.left in
         self#set_ripple_center normalized;
-        self#open_menu ())
+        self#open_menu () )
       else Lwt.return_unit
 
-    method private handle_keydown (event : Dom_html.keyboardEvent Js.t) _ : unit Lwt.t =
+    method private handle_keydown (event : Dom_html.keyboardEvent Js.t) _
+        : unit Lwt.t =
       match Dom_html.Keyboard_code.of_event event with
       | Enter | Space | ArrowUp | ArrowDown ->
-          if not @@ super#has_class CSS.focused
-          then Lwt.return_unit
+          if not @@ super#has_class CSS.focused then Lwt.return_unit
           else (
             Dom.preventDefault event;
-            self#open_menu ())
+            self#open_menu () )
       | _ -> Lwt.return_unit
 
     method private is_menu_open : bool =
       match target with
       | Native _ -> false
-      | Enhanced {menu; _} -> menu#is_open
+      | Enhanced { menu; _ } -> menu#is_open
 
     method private close_menu () : unit =
       match target with
       | Native _ -> ()
-      | Enhanced {menu; _} -> Lwt.async menu#close
+      | Enhanced { menu; _ } -> Lwt.async menu#close
 
     method private open_menu () : unit Lwt.t =
       match target with
       | Native _ -> Lwt.return_unit
-      | Enhanced {menu; text; _} ->
+      | Enhanced { menu; text; _ } ->
           is_menu_open <- true;
           Element.set_attribute text Attr.aria_expanded "true";
           menu#reveal ()
@@ -659,7 +664,7 @@ class ['a] t
     method private set_value_ v =
       match target with
       | Native x -> x##.value := Js.string v
-      | Enhanced {menu; _} ->
+      | Enhanced { menu; _ } ->
           let selector = Printf.sprintf "[%s=%s]" Attr.enhanced_value v in
           let element = Element.query_selector menu#root selector in
           let index =
@@ -681,8 +686,7 @@ class ['a] t
     method private notch_outline (open_notch : bool) : unit =
       Option.iter
         (fun (outline : Notched_outline.t) ->
-          if open_notch
-          then
+          if open_notch then
             let label_scale = Const.label_scale in
             let label_width =
               match floating_label with
@@ -690,14 +694,13 @@ class ['a] t
               | Some (label : Floating_label.t) -> label#width
             in
             outline#notch (float_of_int label_width *. label_scale)
-          else if not @@ super#has_class CSS.focused
-          then outline#close_notch ())
+          else if not @@ super#has_class CSS.focused then outline#close_notch ())
         notched_outline
 
     method private set_enhanced_selected_index (i : int) =
       match target with
       | Native _ -> ()
-      | Enhanced {menu; hidden_input; _} ->
+      | Enhanced { menu; hidden_input; _ } ->
           let selected = List.nth_opt menu#items i in
           Option.iter (fun x ->
               Element.remove_class x Item_list.CSS.item_selected;
@@ -709,17 +712,17 @@ class ['a] t
               Element.set_attribute x Attr.aria_selected "true")
             selected;
           (* Synchronize hidden input's value with data-value attribute of selected item.
-           This code path is also followed when setting value directly, so this covers
-           all cases. *)
+             This code path is also followed when setting value directly, so this covers
+             all cases. *)
           Option.iter
             (fun x ->
               let value =
                 match selected with
                 | None -> ""
                 | Some item -> (
-                  match Element.get_attribute item Attr.enhanced_value with
-                  | None -> ""
-                  | Some v -> v)
+                    match Element.get_attribute item Attr.enhanced_value with
+                    | None -> ""
+                    | Some v -> v )
               in
               x##.value := Js.string value)
             hidden_input;
@@ -727,20 +730,22 @@ class ['a] t
 
     method private initial_sync_required_state () =
       let is_required =
-        (match target with
+        ( match target with
         | Native x -> Js.to_bool (Js.Unsafe.coerce x)##.required
-        | Enhanced _ -> false)
-        || (match Element.get_attribute self#target_element Attr.aria_required with
+        | Enhanced _ -> false )
+        || ( match
+               Element.get_attribute self#target_element Attr.aria_required
+             with
            | Some "true" -> true
-           | _ -> false)
+           | _ -> false )
         || super#has_class CSS.required
       in
-      if is_required
-      then (
-        (match target with
+      if is_required then (
+        ( match target with
         | Native x -> x##.required := Js._true
-        | Enhanced {text; _} -> Element.set_attribute text Attr.aria_required "true");
-        super#add_class CSS.required)
+        | Enhanced { text; _ } ->
+            Element.set_attribute text Attr.aria_required "true" );
+        super#add_class CSS.required )
 
     method private add_mutation_observer_for_required () =
       let open MutationObserver in
@@ -751,16 +756,17 @@ class ['a] t
             then
               match target with
               | Native x ->
-                  if Js.to_bool (Js.Unsafe.coerce x)##.required
-                  then super#add_class CSS.required
+                  if Js.to_bool (Js.Unsafe.coerce x)##.required then
+                    super#add_class CSS.required
                   else super#remove_class CSS.required
-              | Enhanced {text; _} -> (
-                match Element.get_attribute text Attr.aria_required with
-                | Some "true" -> super#add_class CSS.required
-                | _ -> super#remove_class CSS.required))
+              | Enhanced { text; _ } -> (
+                  match Element.get_attribute text Attr.aria_required with
+                  | Some "true" -> super#add_class CSS.required
+                  | _ -> super#remove_class CSS.required ))
           attr_list
       in
-      let get_attributes_list (mutations : mutationRecord Js.t Js.js_array Js.t) =
+      let get_attributes_list (mutations : mutationRecord Js.t Js.js_array Js.t)
+          =
         List.filter_map (fun m ->
             match Js.Opt.to_option @@ m##.attributeName with
             | None -> None
@@ -770,9 +776,7 @@ class ['a] t
       in
       validation_observer <-
         Some
-          (MutationObserver.observe
-             ~node:self#target_element
-             ~attributes:true
+          (MutationObserver.observe ~node:self#target_element ~attributes:true
              ~f:(fun x _ -> handler @@ get_attributes_list x)
              ())
 
@@ -783,20 +787,15 @@ class ['a] t
 
     method private create_ripple () : Ripple.t =
       let adapter = Ripple.make_default_adapter super#root in
-      let adapter = {adapter with event_target = self#target_element} in
+      let adapter = { adapter with event_target = self#target_element } in
       new Ripple.t adapter ()
   end
 
-let native_options_of_values
-    (type a)
-    ?(with_empty = false)
-    ?(label : (a -> string) option)
-    (validation : a validation)
+let native_options_of_values (type a) ?(with_empty = false)
+    ?(label : (a -> string) option) (validation : a validation)
     (values : a list) =
   let label =
-    match label with
-    | None -> valid_to_string validation
-    | Some f -> f
+    match label with None -> valid_to_string validation | Some f -> f
   in
   let options =
     List.map
@@ -804,81 +803,27 @@ let native_options_of_values
         D.Native.option ~value:(valid_to_string validation x) ~text:(label x) ())
       values
   in
-  if not with_empty
-  then options
+  if not with_empty then options
   else
     let empty = D.Native.option ~selected:true ~disabled:true ~text:"" () in
     empty :: options
 
-let attach ?helper_text ?validation ?on_change ?value (elt : #Dom_html.element Js.t) =
+let attach ?helper_text ?validation ?on_change ?value
+    (elt : #Dom_html.element Js.t) =
   new t ?helper_text ?validation ?on_change ?value (Element.coerce elt) ()
 
-let make_native
-    ?classes
-    ?a
-    ?label
-    ?line_ripple
-    ?disabled
-    ?outline
-    ?icon
-    ?required
-    ?autofocus
-    ?size
-    ?form
-    ?name
-    ?options
-    ?native_control
-    ?helper_text
-    ?validation
-    ?on_change
-    ?value
-    () =
-  D.Native.select
-    ?classes
-    ?a
-    ?label
-    ?line_ripple
-    ?disabled
-    ?outline
-    ?icon
-    ?required
-    ?autofocus
-    ?size
-    ?form
-    ?name
-    ?options
-    ?native_control
-    ()
+let make_native ?classes ?a ?label ?line_ripple ?disabled ?outline ?icon
+    ?required ?autofocus ?size ?form ?name ?options ?native_control ?helper_text
+    ?validation ?on_change ?value () =
+  D.Native.select ?classes ?a ?label ?line_ripple ?disabled ?outline ?icon
+    ?required ?autofocus ?size ?form ?name ?options ?native_control ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?helper_text ?validation ?on_change ?value
 
-let make_enhanced
-    ?classes
-    ?a
-    ?label
-    ?line_ripple
-    ?disabled
-    ?selected_text
-    ?outline
-    ?icon
-    ?hidden_input
-    ?helper_text
-    ?validation
-    ?on_change
-    ?value
-    ~menu
-    () =
-  D.Enhanced.select
-    ?classes
-    ?a
-    ?label
-    ?line_ripple
-    ?disabled
-    ?selected_text
-    ?outline
-    ?icon
-    ?hidden_input
-    ~menu
-    ()
+let make_enhanced ?classes ?a ?label ?line_ripple ?disabled ?selected_text
+    ?outline ?icon ?hidden_input ?helper_text ?validation ?on_change ?value
+    ~menu () =
+  D.Enhanced.select ?classes ?a ?label ?line_ripple ?disabled ?selected_text
+    ?outline ?icon ?hidden_input ~menu ()
   |> Tyxml_js.To_dom.of_div
   |> attach ?helper_text ?validation ?on_change ?value

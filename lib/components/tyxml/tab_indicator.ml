@@ -8,8 +8,8 @@ module CSS = struct
   (** Optional. Visually activates the indicator. *)
   let active = BEM.add_modifier root "active"
 
-  (** Optional. Sets up the tab indicator to fade in on activation
-      and fade out on deactivation. *)
+  (** Optional. Sets up the tab indicator to fade in on activation and fade out
+      on deactivation. *)
   let fade = BEM.add_modifier root "fade"
 
   (** Optional. Denotes an underline tab indicator. *)
@@ -34,25 +34,19 @@ struct
   let tab_indicator_content ?(classes = return []) ?(a = []) ?icon () : 'a elt =
     let children, content_class =
       match icon with
-      | None -> nil (), CSS.content_underline
-      | Some i -> singleton (return i), CSS.content_icon
+      | None -> (nil (), CSS.content_underline)
+      | Some i -> (singleton (return i), CSS.content_icon)
     in
     let classes = fmap (fun x -> CSS.content :: content_class :: x) classes in
     span ~a:(a_class classes :: a) children
 
-  let tab_indicator
-      ?(classes = return [])
-      ?(a = [])
-      ?(active = false)
-      ?(fade = false)
-      ?icon
-      ?(content = tab_indicator_content ?icon ())
-      () =
+  let tab_indicator ?(classes = return []) ?(a = []) ?(active = false)
+      ?(fade = false) ?icon ?(content = tab_indicator_content ?icon ()) () =
     let classes =
       fmap
-        (Utils.cons_if fade CSS.fade
+        ( Utils.cons_if fade CSS.fade
         % Utils.cons_if active CSS.active
-        % List.cons CSS.root)
+        % List.cons CSS.root )
         classes
     in
     span ~a:(a_class classes :: a) (singleton (return content))

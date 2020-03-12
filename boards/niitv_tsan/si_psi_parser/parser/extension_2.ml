@@ -7,6 +7,7 @@ let parse bs off =
      |}
     ->
       let node =
-        Node.make ~offset:off 8 "descriptor_tag_extension" (Hex (Int desc_tag_ext))
+        Node.make ~offset:off 8 "descriptor_tag_extension"
+          (Hex (Int desc_tag_ext))
       in
       node :: Bytes.parse ~offset:(off + off_1) rest "selector_byte"

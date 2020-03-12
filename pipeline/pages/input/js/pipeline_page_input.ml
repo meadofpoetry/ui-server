@@ -12,10 +12,10 @@ module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
 
 let ( >>= ) = Lwt_result.bind
 
-type state =
-  { mutable socket : Api_js.Websocket.JSON.t option
-  ; mutable finalize : unit -> unit
-  }
+type state = {
+  mutable socket : Api_js.Websocket.JSON.t option;
+  mutable finalize : unit -> unit;
+}
 (** Tab state. *)
 
 module Selector = struct
@@ -27,27 +27,25 @@ end
 type event =
   [ `Video_data of Qoe_errors.Video_data.t list
   | `Audio_data of Qoe_errors.Audio_data.t list
-  | `Structures of Structure.Annotated.t
-  ]
+  | `Structures of Structure.Annotated.t ]
 
 (** Make necessary HTTP and Websocket requests to the server. *)
 let do_requests ~input state =
-  Http_structure.get_streams ~inputs:[ input ] ()
-  >>= fun streams_init ->
-  Http_structure.get_annotated ()
-  >>= fun structures_init ->
-  Api_js.Websocket.JSON.open_socket ~path:(Netlib.Uri.Path.Format.of_string "ws") ()
+  Http_structure.get_streams ~inputs:[ input ] () >>= fun streams_init ->
+  Http_structure.get_annotated () >>= fun structures_init ->
+  Api_js.Websocket.JSON.open_socket
+    ~path:(Netlib.Uri.Path.Format.of_string "ws")
+    ()
   >>= fun socket ->
   Option.iter Api_js.Websocket.close_socket state.socket;
   state.socket <- Some socket;
-  Http_structure.Event.get_annotated socket
-  >>= fun (_, structures_ev) ->
-  Http_measurements.Event.get_video socket
-  >>= fun (_, video_ev) ->
-  Http_measurements.Event.get_audio socket
-  >>= fun (_, audio_ev) ->
+  Http_structure.Event.get_annotated socket >>= fun (_, structures_ev) ->
+  Http_measurements.Event.get_video socket >>= fun (_, video_ev) ->
+  Http_measurements.Event.get_audio socket >>= fun (_, audio_ev) ->
   (* FIXME replace `never` with something meaningful *)
-  let streams = React.S.map (List.map snd) (React.S.hold streams_init React.E.never) in
+  let streams =
+    React.S.map (List.map snd) (React.S.hold streams_init React.E.never)
+  in
   let structures = React.S.hold structures_init structures_ev in
   let fin () =
     React.(
@@ -65,9 +63,7 @@ class t ~set_stream ~set_hex ~structures elt () =
     val stream_select : Stream_select.t =
       Stream_select.attach ~on_change:(fun x ->
           let id =
-            match x#value with
-            | None -> None
-            | Some (x : Stream.t) -> Some x.id
+            match x#value with None -> None | Some (x : Stream.t) -> Some x.id
           in
           List.iter (fun (x : Parameter_chart.t) -> x#clear ()) charts;
           set_stream id)
@@ -113,14 +109,15 @@ class t ~set_stream ~set_hex ~structures elt () =
             List.fold_right
               (fun ({ stream; channel; pid; data; _ } : Qoe_errors.Video_data.t)
                    (black, luma, freeze, diff, blocky) ->
-                let source = ({ stream; channel; pid } : Parameter_chart.data_source) in
-                ( (source, data.black) :: black
-                , (source, data.luma) :: luma
-                , (source, data.freeze) :: freeze
-                , (source, data.diff) :: diff
-                , (source, data.blocky) :: blocky ))
-              data
-              ([], [], [], [], [])
+                let source =
+                  ({ stream; channel; pid } : Parameter_chart.data_source)
+                in
+                ( (source, data.black) :: black,
+                  (source, data.luma) :: luma,
+                  (source, data.freeze) :: freeze,
+                  (source, data.diff) :: diff,
+                  (source, data.blocky) :: blocky ))
+              data ([], [], [], [], [])
           in
           black_chart#notify (`Data black);
           luma_chart#notify (`Data luma);
@@ -132,10 +129,12 @@ class t ~set_stream ~set_hex ~structures elt () =
             List.fold_right
               (fun ({ stream; channel; pid; data; _ } : Qoe_errors.Audio_data.t)
                    (moment, shortt) ->
-                let source = ({ stream; channel; pid } : Parameter_chart.data_source) in
-                (source, data.moment) :: moment, (source, data.shortt) :: shortt)
-              data
-              ([], [])
+                let source =
+                  ({ stream; channel; pid } : Parameter_chart.data_source)
+                in
+                ( (source, data.moment) :: moment,
+                  (source, data.shortt) :: shortt ))
+              data ([], [])
           in
           moment_chart#notify (`Data moment);
           shortt_chart#notify (`Data shortt)
@@ -148,14 +147,16 @@ let filter_video_data data = function
   | None -> []
   | Some id ->
       List.filter
-        (fun ({ stream; _ } : Qoe_errors.Video_data.t) -> Stream.ID.equal stream id)
+        (fun ({ stream; _ } : Qoe_errors.Video_data.t) ->
+          Stream.ID.equal stream id)
         data
 
 let filter_audio_data data = function
   | None -> []
   | Some id ->
       List.filter
-        (fun ({ stream; _ } : Qoe_errors.Audio_data.t) -> Stream.ID.equal stream id)
+        (fun ({ stream; _ } : Qoe_errors.Audio_data.t) ->
+          Stream.ID.equal stream id)
         data
 
 let on_visible ~input (elt : Dom_html.element Js.t) (state : state) =
@@ -164,10 +165,7 @@ let on_visible ~input (elt : Dom_html.element Js.t) (state : state) =
     do_requests ~input state
     >>= fun (streams, structures, video_ev, audio_ev, fin) ->
     let stream, set_stream =
-      S.create
-        (match S.value streams with
-        | [] -> None
-        | x :: _ -> Some x.id)
+      S.create (match S.value streams with [] -> None | x :: _ -> Some x.id)
     in
     let hex, set_hex = S.create false in
     let stream_select = Stream_select.R.create ~streams () in
@@ -180,13 +178,16 @@ let on_visible ~input (elt : Dom_html.element Js.t) (state : state) =
       E.merge
         (fun _ x -> page#notify x)
         ()
-        [ E.map (fun structures -> `Structures structures) (S.changes structures)
-        ; E.map
+        [
+          E.map
+            (fun structures -> `Structures structures)
+            (S.changes structures);
+          E.map
             (fun data -> `Video_data data)
-            (S.sample filter_video_data video_ev stream)
-        ; E.map
+            (S.sample filter_video_data video_ev stream);
+          E.map
             (fun data -> `Audio_data data)
-            (S.sample filter_audio_data audio_ev stream)
+            (S.sample filter_audio_data audio_ev stream);
         ]
     in
     Dom.appendChild elt page#root;
@@ -214,8 +215,7 @@ let on_hidden state =
 let init ~input () =
   let state = { socket = None; finalize = (fun () -> ()) } in
   let _result =
-    Ui_templates.Tabbed_page.Tabpanel.init
-      ~id
+    Ui_templates.Tabbed_page.Tabpanel.init ~id
       ~on_visible:(fun tabpanel -> on_visible ~input tabpanel state)
       ~on_hidden:(fun _tabpanel -> on_hidden state)
       ()
@@ -228,6 +228,4 @@ let () =
     @@ Yojson.Safe.from_string
     @@ Js.to_string Js.Unsafe.global##.input
   in
-  match input with
-  | Ok input -> init ~input ()
-  | Error _e -> ()
+  match input with Ok input -> init ~input () | Error _e -> ()

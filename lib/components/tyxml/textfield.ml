@@ -56,19 +56,13 @@ struct
   let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
   module Helper_text = struct
-    let helper_text
-        ?(classes = return [])
-        ?(a = [])
-        ?(persistent = false)
-        ?(validation = false)
-        ?text
-        ?(children = nil ())
-        () =
+    let helper_text ?(classes = return []) ?(a = []) ?(persistent = false)
+        ?(validation = false) ?text ?(children = nil ()) () =
       let classes =
         fmap
-          (Utils.cons_if validation CSS.Helper_text.validation_msg
+          ( Utils.cons_if validation CSS.Helper_text.validation_msg
           % Utils.cons_if persistent CSS.Helper_text.persistent
-          % List.cons CSS.Helper_text.root)
+          % List.cons CSS.Helper_text.root )
           classes
       in
       let children =
@@ -78,37 +72,24 @@ struct
       in
       div
         ~a:
-          (a_class classes :: a
-          |> Utils.cons_if (not persistent) @@ a_aria "hidden" (return ["true"]))
+          ( a_class classes :: a
+          |> Utils.cons_if (not persistent)
+             @@ a_aria "hidden" (return [ "true" ]) )
         children
   end
 
   module Character_counter = struct
-    let character_counter
-        ?(classes = return [])
-        ?(a = [])
-        ?(current_length = 0)
-        ?(max_length = 0)
-        () =
+    let character_counter ?(classes = return []) ?(a = []) ?(current_length = 0)
+        ?(max_length = 0) () =
       let classes = fmap (fun x -> CSS.Character_counter.root :: x) classes in
       let text = return @@ Printf.sprintf "%d / %d" current_length max_length in
       div ~a:(a_class classes :: a) (singleton (return (txt text)))
   end
 
   module Textarea = struct
-    let textarea_input
-        ?(classes = return [])
-        ?(a = [])
-        ?id
-        ?(value = return "")
-        ?placeholder
-        ?(required = false)
-        ?min_length
-        ?max_length
-        ?rows
-        ?cols
-        ?(disabled = false)
-        () =
+    let textarea_input ?(classes = return []) ?(a = []) ?id ?(value = return "")
+        ?placeholder ?(required = false) ?min_length ?max_length ?rows ?cols
+        ?(disabled = false) () =
       let classes = fmap (fun x -> CSS.input :: x) classes in
       textarea
         ~a:
@@ -124,26 +105,11 @@ struct
             |> map_cons_option a_cols cols)
         (return (txt value))
 
-    let textarea
-        ?(classes = return [])
-        ?(a = [])
-        ?(disabled = false)
-        ?(fullwidth = false)
-        ?(focused = false)
-        ?(show_character_counter = false)
-        ?character_counter
-        ?input_id
-        ?label
-        ?outline
-        ?value
-        ?placeholder
-        ?required
-        ?min_length
-        ?max_length
-        ?rows
-        ?cols
-        ?input
-        () : 'a elt =
+    let textarea ?(classes = return []) ?(a = []) ?(disabled = false)
+        ?(fullwidth = false) ?(focused = false)
+        ?(show_character_counter = false) ?character_counter ?input_id ?label
+        ?outline ?value ?placeholder ?required ?min_length ?max_length ?rows
+        ?cols ?input () : 'a elt =
       let classes =
         fmap
           Utils.(
@@ -156,7 +122,7 @@ struct
           classes
       in
       let cc =
-        match character_counter, show_character_counter with
+        match (character_counter, show_character_counter) with
         | None, false -> None
         | (Some _ as x), _ -> x
         | None, true ->
@@ -167,42 +133,23 @@ struct
         | Some x -> return x
         | None ->
             return
-            @@ Notched_outline_markup.notched_outline ?label_for:input_id ?label ()
+            @@ Notched_outline_markup.notched_outline ?label_for:input_id ?label
+                 ()
       in
       let input =
         match input with
         | Some x -> return x
         | None ->
             return
-            @@ textarea_input
-                 ?id:input_id
-                 ?value
-                 ?placeholder
-                 ?required
-                 ?min_length
-                 ?max_length
-                 ?rows
-                 ?cols
-                 ()
+            @@ textarea_input ?id:input_id ?value ?placeholder ?required
+                 ?min_length ?max_length ?rows ?cols ()
       in
       div ~a:(a_class classes :: a) (cc ^:: input @:: outline @:: nil ())
   end
 
-  let textfield_input
-      ?(classes = return [])
-      ?(a = [])
-      ?id
-      ?pattern
-      ?min_length
-      ?max_length
-      ?step
-      ?value
-      ?placeholder
-      ?(required = false)
-      ?(disabled = false)
-      ?(typ = `Text)
-      ?input_mode
-      () =
+  let textfield_input ?(classes = return []) ?(a = []) ?id ?pattern ?min_length
+      ?max_length ?step ?value ?placeholder ?(required = false)
+      ?(disabled = false) ?(typ = `Text) ?input_mode () =
     let classes = fmap (fun x -> CSS.input :: x) classes in
     input
       ~a:
@@ -220,65 +167,41 @@ struct
           |> map_cons_option a_value value)
       ()
 
-  let textfield_helper_line ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+  let textfield_helper_line ?(classes = return []) ?(a = [])
+      ?(children = nil ()) () =
     let classes = fmap (fun x -> CSS.helper_line :: x) classes in
     div ~a:(a_class classes :: a) children
 
-  let textfield
-      ?(classes = return [])
-      ?(a = [])
-      ?(disabled = false)
-      ?leading_icon
-      ?trailing_icon
-      ?(fullwidth = false)
-      ?(textarea = false)
-      ?(focused = false)
-      ?label
-      ?outline
-      ?(outlined = false)
-      ?line_ripple
-      ?input_id
-      ?pattern
-      ?min_length
-      ?max_length
-      ?step
-      ?value
-      ?placeholder
-      ?required
-      ?typ
-      ?input_mode
+  let textfield ?(classes = return []) ?(a = []) ?(disabled = false)
+      ?leading_icon ?trailing_icon ?(fullwidth = false) ?(textarea = false)
+      ?(focused = false) ?label ?outline ?(outlined = false) ?line_ripple
+      ?input_id ?pattern ?min_length ?max_length ?step ?value ?placeholder
+      ?required ?typ ?input_mode
       ?(input =
-        textfield_input
-          ?id:input_id
-          ?pattern
-          ?min_length
-          ?max_length
-          ?step
-          ?value
-          ?placeholder
-          ?required
-          ?typ
-          ?input_mode
-          ())
-      () : 'a elt =
+        textfield_input ?id:input_id ?pattern ?min_length ?max_length ?step
+          ?value ?placeholder ?required ?typ ?input_mode ()) () : 'a elt =
     let outline =
-      match outline, outlined with
+      match (outline, outlined) with
       | (Some _ as x), _ -> x
       | None, false -> None
-      | None, true -> Some (return @@ Notched_outline_markup.notched_outline ?label ())
+      | None, true ->
+          Some (return @@ Notched_outline_markup.notched_outline ?label ())
     in
     let line_ripple =
-      match line_ripple, outline with
+      match (line_ripple, outline) with
       | (Some _ as x), _ -> x
       | None, Some _ -> None
       | None, None -> Some (return @@ Line_ripple_markup.line_ripple ())
     in
     let floating_label =
-      match label, outline with
+      match (label, outline) with
       | None, _ -> None
       | Some _, Some _ -> None
       | Some x, None ->
-          Some (return @@ Floating_label_markup.floating_label ?for_:input_id ~label:x ())
+          Some
+            ( return
+            @@ Floating_label_markup.floating_label ?for_:input_id ~label:x ()
+            )
     in
     let with_leading_icon = Option.is_some leading_icon in
     let with_trailing_icon = Option.is_some trailing_icon in
@@ -296,15 +219,14 @@ struct
           % List.cons CSS.root)
         classes
     in
-    div
-      ~a:(a_class classes :: a)
-      (leading_icon
+    div ~a:(a_class classes :: a)
+      ( leading_icon
       ^:: return input
       @:: floating_label
       ^:: trailing_icon
       ^:: outline
       ^:: line_ripple
-      ^:: nil ())
+      ^:: nil () )
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

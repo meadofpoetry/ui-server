@@ -33,7 +33,7 @@ class t ~set_snackbar (elt : Dom_html.element Js.t) =
     method! initial_sync_with_dom () : unit =
       listeners_ <-
         Js_of_ocaml_lwt.Lwt_js_events.
-          [clicks submit_button#root self#handle_submit_click];
+          [ clicks submit_button#root self#handle_submit_click ];
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =
@@ -43,17 +43,17 @@ class t ~set_snackbar (elt : Dom_html.element Js.t) =
       submit_button#destroy ();
       super#destroy ()
 
-    method set_value (x : bool) : unit = (enable#input)#toggle ~force:x ()
+    method set_value (x : bool) : unit = enable#input#toggle ~force:x ()
 
     method private handle_submit_click _ _ : unit Lwt.t =
-      Server_http_js.set_https_enabled (enable#input)#checked
-      >>= function
+      Server_http_js.set_https_enabled enable#input#checked >>= function
       | Ok () ->
           let label =
             Printf.sprintf
-              "HTTPS %s. Настройки вступят в силу после \
-               перезагрузки прибора."
-              (if (enable#input)#checked then "включен" else "выключен")
+              "HTTPS %s. Настройки вступят в силу \
+               после перезагрузки прибора."
+              ( if enable#input#checked then "включен"
+              else "выключен" )
           in
           let snackbar = Snackbar.make ~label:(`Text label) () in
           set_snackbar snackbar >>= fun () -> Lwt.return @@ snackbar#destroy ()
@@ -63,5 +63,7 @@ class t ~set_snackbar (elt : Dom_html.element Js.t) =
   end
 
 let make ~set_snackbar (init : Server_types.settings) : t =
-  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ D.create init in
+  let (elt : Dom_html.element Js.t) =
+    Tyxml_js.To_dom.of_element @@ D.create init
+  in
   new t ~set_snackbar elt

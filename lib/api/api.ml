@@ -1,26 +1,14 @@
-type 'a raw =
-  { data : 'a
-  ; has_more : bool
-  ; order : [ `Asc | `Desc ]
-  }
+type 'a raw = { data : 'a; has_more : bool; order : [ `Asc | `Desc ] }
 [@@deriving yojson]
 
-type ('a, 'b) rows =
-  | Compressed of 'b
-  | Raw of 'a raw
-[@@deriving yojson]
+type ('a, 'b) rows = Compressed of 'b | Raw of 'a raw [@@deriving yojson]
 
 module Show_order = struct
-  type t =
-    [ `Asc
-    | `Desc
-    ]
+  type t = [ `Asc | `Desc ]
 
   let typ = "asc | desc"
 
-  let to_string = function
-    | `Asc -> "asc"
-    | `Desc -> "desc"
+  let to_string = function `Asc -> "asc" | `Desc -> "desc"
 
   let of_string = function
     | "asc" -> `Asc
@@ -28,30 +16,18 @@ module Show_order = struct
     | _ -> failwith "bad order string"
 end
 
-type _ key =
-  | Key : string -> string key
-  | Auth : (string * string) key
+type _ key = Key : string -> string key | Auth : (string * string) key
 
 type env = { env : 'a. 'a key -> 'a option }
 
 (* TODO elaborate this *)
-type 'a response =
-  [ `Value of 'a
-  | `Unit
-  | `Error of string
-  | `Not_implemented
-  ]
+type 'a response = [ `Value of 'a | `Unit | `Error of string | `Not_implemented ]
 
 module Authorize = struct
-  type error =
-    [ `Need_auth
-    | `Wrong_password
-    | `Unknown of string
-    ]
+  type error = [ `Need_auth | `Wrong_password | `Unknown of string ]
 
   let auth validate env =
-    env.env Auth
-    |> function
+    env.env Auth |> function
     | None -> Lwt.return_error `Need_auth
     | Some (name, pass) -> validate ~name ~pass
 end
@@ -103,8 +79,7 @@ type 'a ws_message =
   | `Unsubscribe of int
   | `Unsubscribed
   | `Event of 'a
-  | `Error of string
-  ]
+  | `Error of string ]
 
 module type WS_BODY = sig
   type t
@@ -139,14 +114,14 @@ module type S = sig
   val merge : ?prefix:string -> t list -> t
 
   val handle :
-       t
-    -> state:state
-    -> ?meth:meth
-    -> ?forbidden:(user -> response)
-    -> ?default:(user -> response)
-    -> env:env
-    -> redir:(env -> (user, Authorize.error) Lwt_result.t)
-    -> path
-    -> string
-    -> response
+    t ->
+    state:state ->
+    ?meth:meth ->
+    ?forbidden:(user -> response) ->
+    ?default:(user -> response) ->
+    env:env ->
+    redir:(env -> (user, Authorize.error) Lwt_result.t) ->
+    path ->
+    string ->
+    response
 end

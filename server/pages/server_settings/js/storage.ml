@@ -1,6 +1,5 @@
 open Js_of_ocaml
-
-module Local = Browser_storage.Make_local(Application_types.User)
+module Local = Browser_storage.Make_local (Application_types.User)
 
 module K = struct
   let show_private_key_disclaimer = "show-private-key-disclaimer"
@@ -14,7 +13,7 @@ let user =
 
 let get_show_private_key_disclaimer () =
   match Local.get user K.show_private_key_disclaimer with
-  | Some `Bool x -> x
+  | Some (`Bool x) -> x
   | _ -> true
 
 let set_show_private_key_disclaimer (x : bool) =

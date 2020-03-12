@@ -13,7 +13,8 @@ end
 module Selector = struct
   let tab_bar = Printf.sprintf ".%s .%s" Top_app_bar.CSS.root Tab_bar.CSS.root
 
-  let tabpanel_content = "." ^ Ui_templates_tyxml.Tabbed_page.CSS.tabpanel_content
+  let tabpanel_content =
+    "." ^ Ui_templates_tyxml.Tabbed_page.CSS.tabpanel_content
 
   let glide = "." ^ Components_lab.Glide.CSS.root
 end
@@ -33,14 +34,10 @@ module Tabpanel = struct
     | Some x ->
         let (target : Dom_html.element Js.t) = Js.Unsafe.coerce x##.target in
         let current = target##getAttribute (Js.string "hidden") in
-        if x##.oldValue != current
-        then
-          Js.Opt.case
-            current
+        if x##.oldValue != current then
+          Js.Opt.case current
             (fun () ->
-              match on_visible with
-              | None -> ()
-              | Some f -> state_ref := f ())
+              match on_visible with None -> () | Some f -> state_ref := f ())
             (fun _ ->
               match !state_ref with
               | None -> ()
@@ -53,25 +50,30 @@ module Tabpanel = struct
     let tabpanel_id = Ui_templates_tyxml.Tabbed_page.tabpanel_id id in
     let body = Dom_html.document##.body in
     match Dom_html.getElementById_opt tabpanel_id with
-    | None -> Error (`Msg (Printf.sprintf "tabpanel with id `%s` not found" tabpanel_id))
+    | None ->
+        Error
+          (`Msg (Printf.sprintf "tabpanel with id `%s` not found" tabpanel_id))
     | Some tabpanel -> (
         match Element.query_selector tabpanel Selector.tabpanel_content with
-        | None -> Error (`Msg (Printf.sprintf "tabpanel content element not found"))
+        | None ->
+            Error (`Msg (Printf.sprintf "tabpanel content element not found"))
         | Some content ->
             let listener =
               Option.map
                 (fun tab_bar ->
                   Tab_bar.Lwt_js_events.changes tab_bar (fun e _ ->
                       let detail = Widget.event_detail e in
-                      let previous = Js.Opt.map detail##.previousTab (fun x -> x##.id) in
-                      if detail##.tab##.id == Js.string tab_id
-                      then Option.iter (fun f -> f content) on_visible
-                      else if previous == Js.some (Js.string tab_id)
-                      then Option.iter (fun f -> f content) on_hidden;
+                      let previous =
+                        Js.Opt.map detail##.previousTab (fun x -> x##.id)
+                      in
+                      if detail##.tab##.id == Js.string tab_id then
+                        Option.iter (fun f -> f content) on_visible
+                      else if previous == Js.some (Js.string tab_id) then
+                        Option.iter (fun f -> f content) on_hidden;
                       Lwt.return_unit))
                 (Element.query_selector body Selector.tab_bar)
             in
-            Ok (content, fun () -> Option.iter Lwt.cancel listener))
+            Ok (content, fun () -> Option.iter Lwt.cancel listener) )
 end
 
 let get_active_tab (tab_bar : Tab_bar.t) =
@@ -89,18 +91,15 @@ let get_active_tab (tab_bar : Tab_bar.t) =
   in
   match active_by_hash with
   | Some _ as x -> x
-  | None -> (
-      match tab_bar#tabs with
-      | [] -> None
-      | hd :: _ -> Some hd)
+  | None -> ( match tab_bar#tabs with [] -> None | hd :: _ -> Some hd )
 
-let set_active_page (glide : Components_lab.Glide.t) (tab : Tab_bar.Event.detail Js.t) =
+let set_active_page (glide : Components_lab.Glide.t)
+    (tab : Tab_bar.Event.detail Js.t) =
   let active = tab##.index in
   List.iteri
     (fun i item ->
       let content = Element.query_selector_exn item Selector.tabpanel_content in
-      if i <> active
-      then Element.set_attribute content Attr.hidden ""
+      if i <> active then Element.set_attribute content Attr.hidden ""
       else Element.remove_attribute content Attr.hidden)
     glide#items;
   glide#set_active active;
@@ -127,7 +126,9 @@ let init () =
   query_selector_lwt body Selector.glide >>=? fun glide_elt ->
   let tab_bar = Tab_bar.attach tab_bar_elt in
   let glide = Glide.attach glide_elt in
-  let listener = Tab_bar.Lwt_js_events.changes tab_bar_elt (handle_tab_change glide) in
+  let listener =
+    Tab_bar.Lwt_js_events.changes tab_bar_elt (handle_tab_change glide)
+  in
   let thread =
     match get_active_tab tab_bar with
     | None -> Lwt.return ()

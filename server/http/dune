@@ -1,10 +1,4 @@
 (library
-  (name      server_http)
-  (libraries server
-             server_types
-             api_websocket
-             api_cohttp_template
-             api_cohttp
-             components_tyxml
-             x509
-             util_react))
+ (name server_http)
+ (libraries server server_types api_websocket api_cohttp_template api_cohttp
+   components_tyxml x509 util_react))

@@ -86,11 +86,10 @@ struct
   open Icon_button.Make (Xml) (Svg) (Html)
 
   module Controls = struct
-    type align =
-      [ `Start
-      | `End ]
+    type align = [ `Start | `End ]
 
-    let create_action ?(classes = []) ?a ?ripple ?disabled ?on_icon ~icon () : 'a elt =
+    let create_action ?(classes = []) ?a ?ripple ?disabled ?on_icon ~icon () :
+        'a elt =
       let classes = CSS.Controls.action :: classes in
       icon_button ?a ?ripple ?disabled ?on_icon ~classes ~icon ()
 
@@ -98,8 +97,8 @@ struct
       let classes = CSS.Controls.volume_panel :: classes in
       div ~a:(a_class classes :: a) content
 
-    let create_section ?(classes = []) ?(a = []) ?(align : align option) content () :
-        'a elt =
+    let create_section ?(classes = []) ?(a = []) ?(align : align option) content
+        () : 'a elt =
       let classes =
         classes
         |> Utils.map_cons_option
@@ -116,65 +115,51 @@ struct
       div ~a:(a_class classes :: a) sections
   end
 
-  let create_audio
-      ?(classes = [])
-      ?(a = [])
-      ?(controls = true)
-      ?(autoplay = false)
-      ?(playsinline = false)
-      () : 'a elt =
+  let create_audio ?(classes = []) ?(a = []) ?(controls = true)
+      ?(autoplay = false) ?(playsinline = false) () : 'a elt =
     let classes = CSS.audio :: classes in
     audio
       ~a:
-        ([a_class classes; Unsafe.string_attrib "preload" "auto"] @ a
+        ( [ a_class classes; Unsafe.string_attrib "preload" "auto" ] @ a
         |> Utils.cons_if_lazy controls a_controls
         |> Utils.cons_if_lazy autoplay a_autoplay
         |> Utils.cons_if_lazy playsinline (fun () ->
-               Unsafe.string_attrib "playsinline" "true"))
+               Unsafe.string_attrib "playsinline" "true") )
       []
 
-  let create_video
-      ?(classes = [])
-      ?(a = [])
-      ?(autoplay = false)
-      ?(playsinline = false)
-      ?(controls = true)
-      () : 'a elt =
+  let create_video ?(classes = []) ?(a = []) ?(autoplay = false)
+      ?(playsinline = false) ?(controls = true) () : 'a elt =
     let classes = CSS.video :: classes in
     video
       ~a:
-        ([a_class classes; Unsafe.string_attrib "preload" "auto"] @ a
+        ( [ a_class classes; Unsafe.string_attrib "preload" "auto" ] @ a
         |> Utils.cons_if_lazy controls a_controls
         |> Utils.cons_if_lazy autoplay a_autoplay
         |> Utils.cons_if_lazy playsinline (fun () ->
-               Unsafe.string_attrib "playsinline" "true"))
+               Unsafe.string_attrib "playsinline" "true") )
       []
 
   let create_state_overlay ?(classes = []) ?(a = []) path () : 'a elt =
     let classes = CSS.state_overlay_wrapper :: classes in
     div
-      ~a:([a_class classes; a_style "display: none;"] @ a)
-      [ div
-          ~a:[a_class [CSS.state_overlay]]
-          [SVG.icon ~classes:[CSS.state_overlay_icon] ~d:path ()] ]
+      ~a:([ a_class classes; a_style "display: none;" ] @ a)
+      [
+        div
+          ~a:[ a_class [ CSS.state_overlay ] ]
+          [ SVG.icon ~classes:[ CSS.state_overlay_icon ] ~d:path () ];
+      ]
 
   let create_gradient ?(classes = []) ?(a = []) () : 'a elt =
     let classes = CSS.gradient :: classes in
     div ~a:(a_class classes :: a) []
 
-  let create
-      ?(classes = [])
-      ?(a = [])
-      ?controls
-      ?gradient
-      ?state_overlay
-      ?audio
-      ~video
-      () : 'a elt =
+  let create ?(classes = []) ?(a = []) ?controls ?gradient ?state_overlay ?audio
+      ~video () : 'a elt =
     let classes = CSS.root :: classes in
     div
-      ~a:([a_class classes; a_tabindex (-1)] @ a)
-      Utils.(video :: (audio ^:: state_overlay ^:: gradient ^:: controls ^:: []))
+      ~a:([ a_class classes; a_tabindex (-1) ] @ a)
+      Utils.(
+        video :: (audio ^:: state_overlay ^:: gradient ^:: controls ^:: []))
 end
 
 module F = Make (Tyxml.Xml) (Tyxml.Svg) (Tyxml.Html)

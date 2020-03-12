@@ -36,7 +36,7 @@ type status =
   | Check_libraries
   | Copy_files
   | Run_hook
-  [@@deriving yojson]
+[@@deriving yojson]
 
 let status_of_int32 = function
   | 0l -> Unknown
@@ -45,37 +45,37 @@ let status_of_int32 = function
   | 3l -> Running
   | 4l -> Query
   | 5l -> Info
-  | 6l ->  Remove
-  | 7l ->  Refresh_cache
-  | 8l ->  Download
-  | 9l ->  Install
-  | 10l ->  Update
-  | 11l ->  Cleanup
-  | 12l ->  Obsolete
-  | 13l ->  Dep_resolve
-  | 14l ->  Sig_check
-  | 15l ->  Test_commit
-  | 16l ->  Commit
-  | 17l ->  Request
-  | 18l ->  Finished
-  | 19l ->  Cancel
-  | 20l ->  Download_repository
-  | 21l ->  Download_packagelist
-  | 22l ->  Download_filelist
-  | 23l ->  Download_changelog
-  | 24l ->  Download_group
-  | 25l ->  Download_updateinfo
-  | 26l ->  Repackaging
-  | 27l ->  Loading_cache
-  | 28l ->  Scan_applications
-  | 29l ->  Generate_package_list
-  | 30l ->  Waiting_for_lock
-  | 31l ->  Waiting_for_auth
-  | 32l ->  Scan_process_list
-  | 33l ->  Check_executable_files
-  | 34l ->  Check_libraries
-  | 35l ->  Copy_files
-  | 36l ->  Run_hook
+  | 6l -> Remove
+  | 7l -> Refresh_cache
+  | 8l -> Download
+  | 9l -> Install
+  | 10l -> Update
+  | 11l -> Cleanup
+  | 12l -> Obsolete
+  | 13l -> Dep_resolve
+  | 14l -> Sig_check
+  | 15l -> Test_commit
+  | 16l -> Commit
+  | 17l -> Request
+  | 18l -> Finished
+  | 19l -> Cancel
+  | 20l -> Download_repository
+  | 21l -> Download_packagelist
+  | 22l -> Download_filelist
+  | 23l -> Download_changelog
+  | 24l -> Download_group
+  | 25l -> Download_updateinfo
+  | 26l -> Repackaging
+  | 27l -> Loading_cache
+  | 28l -> Scan_applications
+  | 29l -> Generate_package_list
+  | 30l -> Waiting_for_lock
+  | 31l -> Waiting_for_auth
+  | 32l -> Scan_process_list
+  | 33l -> Check_executable_files
+  | 34l -> Check_libraries
+  | 35l -> Copy_files
+  | 36l -> Run_hook
   | _ -> Unknown
 
 let int32_of_status = function
@@ -117,14 +117,15 @@ let int32_of_status = function
   | Copy_files -> 35l
   | Run_hook -> 36l
 
-let status_equal : status -> status -> bool = Stdlib.(=)
-              
+let status_equal : status -> status -> bool = Stdlib.( = )
+
 type progress = int32 [@@deriving yojson]
-              
-type state = [ `Unchecked
-             | `Checking of status * progress
-             | `Updates_avail
-             | `Updates_not_avail
-             | `Upgrading of status * progress
-             | `Need_reboot
-             ] [@@deriving yojson]
+
+type state =
+  [ `Unchecked
+  | `Checking of status * progress
+  | `Updates_avail
+  | `Updates_not_avail
+  | `Upgrading of status * progress
+  | `Need_reboot ]
+[@@deriving yojson]

@@ -8,8 +8,8 @@ module CSS = struct
   (** Optional, for the text label. Applicable only for Extended FAB. *)
   let label = BEM.add_element root "label"
 
-  (** Optional, animates the FAB out of view.
-      When this class is removed, the FAB will return to view. *)
+  (** Optional, animates the FAB out of view. When this class is removed, the
+      FAB will return to view. *)
   let exited = BEM.add_modifier root "exited"
 
   (** Optional, modifies the FAB to a smaller size. *)
@@ -31,33 +31,25 @@ struct
 
   let ( ^:: ) x l = Option.fold ~none:l ~some:(fun x -> cons x l) x
 
-  let fab
-      ?(classes = return [])
-      ?(a = [])
-      ?(mini = false)
-      ?(extended = false)
-      ?label
-      ?icon
-      () =
+  let fab ?(classes = return []) ?(a = []) ?(mini = false) ?(extended = false)
+      ?label ?icon () =
     let classes =
       fmap
-        (Utils.cons_if mini CSS.mini
+        ( Utils.cons_if mini CSS.mini
         % Utils.cons_if extended CSS.extended
-        % List.cons CSS.root)
+        % List.cons CSS.root )
         classes
     in
-    let label =
-      match extended with
-      | false -> None
-      | true -> label
-    in
+    let label = match extended with false -> None | true -> label in
     let label =
       match label with
       | None -> None
       | Some x ->
           Some
-            (return
-            @@ span ~a:[a_class (return [CSS.label])] (singleton (return (txt x))))
+            ( return
+            @@ span
+                 ~a:[ a_class (return [ CSS.label ]) ]
+                 (singleton (return (txt x))) )
     in
     let content = icon ^:: label ^:: nil () in
     button ~a:(a_class classes :: a) content

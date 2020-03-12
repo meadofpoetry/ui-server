@@ -1,3 +1,4 @@
 (env
  (release
-  (ocamlopt_flags (:standard -O3 -unbox-closures))))
+  (ocamlopt_flags
+   (:standard -O3 -unbox-closures))))

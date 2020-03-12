@@ -7,7 +7,8 @@ module Event = struct
 
   let get_config (api : Protocol.api) _user =
     let event =
-      S.changes api.notifs.config |> E.map (fun x -> ip_receive_to_yojson x.ip_receive)
+      S.changes api.notifs.config
+      |> E.map (fun x -> ip_receive_to_yojson x.ip_receive)
     in
     Lwt.return event
 
@@ -17,7 +18,9 @@ module Event = struct
 end
 
 let get_config (api : Protocol.api) _user _body _env _state =
-  return_value @@ ip_receive_to_yojson @@ (React.S.value api.notifs.config).ip_receive
+  return_value
+  @@ ip_receive_to_yojson
+  @@ (React.S.value api.notifs.config).ip_receive
 
 let get (api : Protocol.api) req to_yojson =
   api.channel (IP_receive req) >>=? return_value % to_yojson
@@ -31,9 +34,9 @@ let set_addressing_method (api : Protocol.api) _user body _env _state =
   | Ok x ->
       api.channel (IP_receive (Addressing_method (`W x)))
       >>=? fun (addressing_method : meth) ->
-      (api.kv)#get
-      >>= fun cfg ->
-      (api.kv)#set {cfg with ip_receive = {cfg.ip_receive with addressing_method}}
+      api.kv#get >>= fun cfg ->
+      api.kv#set
+        { cfg with ip_receive = { cfg.ip_receive with addressing_method } }
       >>= fun () -> Lwt.return @@ `Value (meth_to_yojson addressing_method)
 
 let get_enable (api : Protocol.api) _user _body _env _state =
@@ -43,11 +46,9 @@ let set_enable (api : Protocol.api) _user body _env _state =
   match Util_json.Bool.of_yojson body with
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
-      api.channel (IP_receive (Enable (`W x)))
-      >>=? fun enable ->
-      (api.kv)#get
-      >>= fun cfg ->
-      (api.kv)#set {cfg with ip_receive = {cfg.ip_receive with enable}}
+      api.channel (IP_receive (Enable (`W x))) >>=? fun enable ->
+      api.kv#get >>= fun cfg ->
+      api.kv#set { cfg with ip_receive = { cfg.ip_receive with enable } }
       >>= fun () -> Lwt.return @@ `Value (Util_json.Bool.to_yojson enable)
 
 let get_fec_delay (api : Protocol.api) _user _body _env _state =
@@ -60,11 +61,9 @@ let set_fec_enable (api : Protocol.api) _user body _env _state =
   match Util_json.Bool.of_yojson body with
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
-      api.channel (IP_receive (FEC_enable (`W x)))
-      >>=? fun fec_enable ->
-      (api.kv)#get
-      >>= fun cfg ->
-      (api.kv)#set {cfg with ip_receive = {cfg.ip_receive with fec_enable}}
+      api.channel (IP_receive (FEC_enable (`W x))) >>=? fun fec_enable ->
+      api.kv#get >>= fun cfg ->
+      api.kv#set { cfg with ip_receive = { cfg.ip_receive with fec_enable } }
       >>= fun () -> Lwt.return @@ `Value (Util_json.Bool.to_yojson fec_enable)
 
 let get_fec_columns (api : Protocol.api) _user _body _env _state =
@@ -89,11 +88,9 @@ let set_udp_port (api : Protocol.api) _user body _env _state =
   match Util_json.Int.of_yojson body with
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
-      api.channel (IP_receive (UDP_port (`W x)))
-      >>=? fun udp_port ->
-      (api.kv)#get
-      >>= fun cfg ->
-      (api.kv)#set {cfg with ip_receive = {cfg.ip_receive with udp_port}}
+      api.channel (IP_receive (UDP_port (`W x))) >>=? fun udp_port ->
+      api.kv#get >>= fun cfg ->
+      api.kv#set { cfg with ip_receive = { cfg.ip_receive with udp_port } }
       >>= fun () -> Lwt.return @@ `Value (Util_json.Int.to_yojson udp_port)
 
 let get_ip_to_output_delay (api : Protocol.api) _user _body _env _state =
@@ -105,10 +102,11 @@ let set_ip_to_output_delay (api : Protocol.api) _user body _env _state =
   | Ok x ->
       api.channel (IP_receive (IP_to_output_delay (`W x)))
       >>=? fun ip_to_output_delay ->
-      (api.kv)#get
-      >>= fun cfg ->
-      (api.kv)#set {cfg with ip_receive = {cfg.ip_receive with ip_to_output_delay}}
-      >>= fun () -> Lwt.return @@ `Value (Util_json.Int.to_yojson ip_to_output_delay)
+      api.kv#get >>= fun cfg ->
+      api.kv#set
+        { cfg with ip_receive = { cfg.ip_receive with ip_to_output_delay } }
+      >>= fun () ->
+      Lwt.return @@ `Value (Util_json.Int.to_yojson ip_to_output_delay)
 
 let get_multicast_address (api : Protocol.api) _user _body _env _state =
   get api (Multicast_address `R) Ipaddr.V4.to_yojson
@@ -117,11 +115,9 @@ let set_multicast_address (api : Protocol.api) _user body _env _state =
   match Ipaddr.V4.of_yojson body with
   | Error e -> Lwt.return (`Error e)
   | Ok x ->
-      api.channel (IP_receive (Multicast_address (`W x)))
-      >>=? fun multicast ->
-      (api.kv)#get
-      >>= fun cfg ->
-      (api.kv)#set {cfg with ip_receive = {cfg.ip_receive with multicast}}
+      api.channel (IP_receive (Multicast_address (`W x))) >>=? fun multicast ->
+      api.kv#get >>= fun cfg ->
+      api.kv#set { cfg with ip_receive = { cfg.ip_receive with multicast } }
       >>= fun () -> Lwt.return @@ `Value (Ipaddr.V4.to_yojson multicast)
 
 let get_tp_per_ip (api : Protocol.api) _user _body _env _state =
@@ -160,9 +156,8 @@ let set_rate_estimation_mode (api : Protocol.api) _user body _env _state =
   | Ok x ->
       api.channel (IP_receive (Rate_estimation_mode (`W x)))
       >>=? fun rate_mode ->
-      (api.kv)#get
-      >>= fun cfg ->
-      (api.kv)#set {cfg with ip_receive = {cfg.ip_receive with rate_mode}}
+      api.kv#get >>= fun cfg ->
+      api.kv#set { cfg with ip_receive = { cfg.ip_receive with rate_mode } }
       >>= fun () -> Lwt.return @@ `Value (rate_mode_to_yojson rate_mode)
 
 let get_jitter_error_counter (api : Protocol.api) _user _body _env _state =

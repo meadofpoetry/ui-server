@@ -13,8 +13,7 @@ let parse_type = function
   | x -> Printf.sprintf "%d" x
 
 let rec parse bs off =
-  if Bitstring.length bs = 0
-  then []
+  if Bitstring.length bs = 0 then []
   else
     match%bitstring bs with
     | {| lang_code : 24 : bitstring
@@ -27,24 +26,15 @@ let rec parse bs off =
         let p_code, lang_code = Language_code.parse lang_code in
         let parsed = parse_type txt_type in
         let nodes =
-          [ Node.make
-              ~parsed:p_code
-              ~offset:off
-              24
-              "ISO_639_language_code"
-              (Bits (Int lang_code))
-          ; Node.make
-              ~parsed
-              ~offset:(off + off_1)
-              5
-              "teletext_type"
-              (Hex (Int txt_type))
-          ; Node.make
-              ~offset:(off + off_2)
-              3
-              "teletext_magazine_number"
-              (Dec (Int mag_num))
-          ; Node.make ~offset:(off + off_3) 8 "teletext_page_number" (Dec (Int page_num))
+          [
+            Node.make ~parsed:p_code ~offset:off 24 "ISO_639_language_code"
+              (Bits (Int lang_code));
+            Node.make ~parsed ~offset:(off + off_1) 5 "teletext_type"
+              (Hex (Int txt_type));
+            Node.make ~offset:(off + off_2) 3 "teletext_magazine_number"
+              (Dec (Int mag_num));
+            Node.make ~offset:(off + off_3) 8 "teletext_page_number"
+              (Dec (Int page_num));
           ]
         in
         let node = Node.make ~offset:off 40 p_code (List nodes) in

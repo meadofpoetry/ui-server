@@ -1,8 +1,7 @@
 let name = "multilingual_component_descriptor"
 
 let rec parse_rest bs off =
-  if Bitstring.bitstring_length bs = 0
-  then []
+  if Bitstring.bitstring_length bs = 0 then []
   else
     match%bitstring bs with
     | {| lang_code : 24 : bitstring
@@ -18,18 +17,13 @@ let rec parse_rest bs off =
           | Error _ -> "Unable to decode"
         in
         let nodes =
-          [ Node.make
-              ~parsed
-              ~offset:off
-              24
-              "ISO_639_language_code"
-              (Bits (Int lang_code))
-          ; Node.make
-              ~offset:(off + off_1)
-              8
-              "text_description_length"
-              (Dec (Int length))
-          ; Node.make ~offset:(off + off_2) (length * 8) "text_description" (String text)
+          [
+            Node.make ~parsed ~offset:off 24 "ISO_639_language_code"
+              (Bits (Int lang_code));
+            Node.make ~offset:(off + off_1) 8 "text_description_length"
+              (Dec (Int length));
+            Node.make ~offset:(off + off_2) (length * 8) "text_description"
+              (String text);
           ]
         in
         let real_length = 32 + (length * 8) in
@@ -42,5 +36,7 @@ let parse bs off =
      ; rest          : -1 : save_offset_to (off_1), bitstring
      |}
     ->
-      let node = Node.make ~offset:off 8 "component_tag" (Hex (Int component_tag)) in
+      let node =
+        Node.make ~offset:off 8 "component_tag" (Hex (Int component_tag))
+      in
       node :: parse_rest rest (off + off_1)

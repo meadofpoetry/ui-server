@@ -19,15 +19,14 @@ end
 let sum_scroll_offsets (e : Dom_html.element Js.t) =
   let rec aux cur acc_left acc_top =
     match Js.Opt.to_option cur with
-    | None -> acc_left, acc_top
+    | None -> (acc_left, acc_top)
     | Some cur -> (
-      match Js.to_string cur##.nodeName##toLowerCase with
-      | "body" -> acc_left, acc_top
-      | _ ->
-          aux
-            cur##.parentNode
-            (acc_left + (Js.Unsafe.coerce cur)##.scrollLeft)
-            (acc_top + (Js.Unsafe.coerce cur)##.scrollTop))
+        match Js.to_string cur##.nodeName##toLowerCase with
+        | "body" -> (acc_left, acc_top)
+        | _ ->
+            aux cur##.parentNode
+              (acc_left + (Js.Unsafe.coerce cur)##.scrollLeft)
+              (acc_top + (Js.Unsafe.coerce cur)##.scrollTop) )
   in
   aux e##.parentNode 0 0
 
@@ -38,7 +37,7 @@ class t (elt : Dom_html.element Js.t) () =
 
     val panels : Dom_html.element Js.t * Dom_html.element Js.t =
       match Element.query_selector_all elt CSS.panel with
-      | [x; y] -> x, y
+      | [ x; y ] -> (x, y)
       | _ -> failwith "split: two panels must be provided"
 
     val mutable _mousedown : unit Lwt.t option = None
@@ -63,11 +62,13 @@ class t (elt : Dom_html.element Js.t) () =
       super#initial_sync_with_dom ();
       (* Attach event listeners. *)
       let mousedown =
-        Js_of_ocaml_lwt.Lwt_js_events.mousedowns super#root self#handle_mousedown
+        Js_of_ocaml_lwt.Lwt_js_events.mousedowns super#root
+          self#handle_mousedown
       in
       _mousedown <- Some mousedown;
       let touchstart =
-        Js_of_ocaml_lwt.Lwt_js_events.touchstarts super#root self#handle_touchstart
+        Js_of_ocaml_lwt.Lwt_js_events.touchstarts super#root
+          self#handle_touchstart
       in
       _touchstart <- Some touchstart
 
@@ -80,10 +81,12 @@ class t (elt : Dom_html.element Js.t) () =
 
     method vertical : bool = super#has_class CSS.vertical
 
-    method set_vertical (x : bool) : unit = super#toggle_class ~force:x CSS.vertical
+    method set_vertical (x : bool) : unit =
+      super#toggle_class ~force:x CSS.vertical
 
     (* Private methods *)
-    method private handle_touchstart (_ : Dom_html.touchEvent Js.t) _ : unit Lwt.t =
+    method private handle_touchstart (_ : Dom_html.touchEvent Js.t) _
+        : unit Lwt.t =
       let touchmove =
         Js_of_ocaml_lwt.Lwt_js_events.touchmoves super#root (fun e _ ->
             let percent = self#calc_percent (Touch e) in
@@ -105,11 +108,13 @@ class t (elt : Dom_html.element Js.t) () =
       _touchcancel <- Some touchcancel;
       Lwt.return_unit
 
-    method private handle_mousedown (e : Dom_html.mouseEvent Js.t) _ : unit Lwt.t =
+    method private handle_mousedown (e : Dom_html.mouseEvent Js.t) _
+        : unit Lwt.t =
       match e##.button with
       | 0 ->
           let mouseup =
-            Js_of_ocaml_lwt.Lwt_js_events.mouseups Dom_html.document##.body (fun _ _ ->
+            Js_of_ocaml_lwt.Lwt_js_events.mouseups Dom_html.document##.body
+              (fun _ _ ->
                 self#stop_drag ();
                 Lwt.return_unit)
           in
@@ -126,11 +131,11 @@ class t (elt : Dom_html.element Js.t) () =
                   | None -> None
                   | Some x -> Js.Opt.to_option x
                 in
-                (match related_target with
+                ( match related_target with
                 | None -> ()
                 | Some target ->
                     if Element.equal Dom_html.document##.documentElement target
-                    then self#stop_drag ());
+                    then self#stop_drag () );
                 Lwt.return_unit)
           in
           _mouseup <- Some mouseup;
@@ -160,18 +165,18 @@ class t (elt : Dom_html.element Js.t) () =
 
     method private get_cursor_position (event : event) : int * int =
       match event with
-      | Mouse e -> e##.clientX, e##.clientY
+      | Mouse e -> (e##.clientX, e##.clientY)
       | Touch e -> (
           let touch = Js.Optdef.to_option (e##.touches##item 0) in
           match touch with
-          | None -> 0, 0
-          | Some (touch : Dom_html.touch Js.t) -> touch##.clientX, touch##.clientY)
+          | None -> (0, 0)
+          | Some (touch : Dom_html.touch Js.t) ->
+              (touch##.clientX, touch##.clientY) )
 
     method private calc_percent (event : event) : float =
       let rect = super#root##getBoundingClientRect in
       let client_x, client_y = self#get_cursor_position event in
-      if self#vertical
-      then
+      if self#vertical then
         let height = super#root##.clientHeight in
         let offsets = sum_scroll_offsets super#root in
         let rel_y = client_y - int_of_float rect##.top + snd offsets in

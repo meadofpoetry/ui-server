@@ -19,20 +19,21 @@ end
 (* TODO rewrite *)
 let get_checked ?(filter_empty = false) children =
   let children =
-    if filter_empty
-    then
-      let child_wrapper_selector = Printf.sprintf ".%s" Treeview.CSS.node_children in
+    if filter_empty then
+      let child_wrapper_selector =
+        Printf.sprintf ".%s" Treeview.CSS.node_children
+      in
       List.filter
         (fun x ->
           let child_wrapper =
-            Element.query_selector (Tyxml_js.To_dom.of_element x) child_wrapper_selector
+            Element.query_selector
+              (Tyxml_js.To_dom.of_element x)
+              child_wrapper_selector
           in
           match child_wrapper with
           | None -> false
           | Some x -> (
-            match Element.children x with
-            | [] -> false
-            | _ -> true))
+              match Element.children x with [] -> false | _ -> true ))
         children
     else children
   in
@@ -43,44 +44,50 @@ let get_checked ?(filter_empty = false) children =
         List.for_all
           (fun x ->
             let aria_checked =
-              Element.get_attribute (Tyxml_js.To_dom.of_element x) Attr.aria_checked
+              Element.get_attribute
+                (Tyxml_js.To_dom.of_element x)
+                Attr.aria_checked
             in
-            match aria_checked with
-            | Some "true" -> true
-            | _ -> false)
+            match aria_checked with Some "true" -> true | _ -> false)
           children
   in
   let indeterminate =
     (not checked)
-    && (Option.is_some
+    && Option.is_some
        @@ List.find_opt
             (fun x ->
               let aria_checked =
-                Element.get_attribute (Tyxml_js.To_dom.of_element x) Attr.aria_checked
+                Element.get_attribute
+                  (Tyxml_js.To_dom.of_element x)
+                  Attr.aria_checked
               in
               match aria_checked with
               | Some "mixed" | Some "true" -> true
               | _ -> false)
-            children)
+            children
   in
-  checked, indeterminate
+  (checked, indeterminate)
 
 let contains pattern value =
   let len = String.length value in
-  if len > String.length pattern
-  then false
+  if len > String.length pattern then false
   else
     let sub = String.sub pattern 0 len in
     String.uppercase_ascii sub = String.uppercase_ascii value
 
 let make_checkbox_spacer () =
-  Tyxml_js.Html.(span ~a:[a_class [Item_list.CSS.item_graphic; CSS.checkbox_spacer]] [])
+  Tyxml_js.Html.(
+    span ~a:[ a_class [ Item_list.CSS.item_graphic; CSS.checkbox_spacer ] ] [])
 
 let make_pid ((state : Structure.Annotated.state), (pid : Structure.pid)) =
-  let text = Printf.sprintf "PID %d (0x%04X), %s" pid.pid pid.pid pid.stream_type_name in
+  let text =
+    Printf.sprintf "PID %d (0x%04X), %s" pid.pid pid.pid pid.stream_type_name
+  in
   (* FIXME we should match by pid type, but it is not working at the moment *)
   let checked, graphic =
-    if contains pid.stream_type_name "video" || contains pid.stream_type_name "audio"
+    if
+      contains pid.stream_type_name "video"
+      || contains pid.stream_type_name "audio"
     then
       let checked =
         match state with
@@ -88,16 +95,13 @@ let make_pid ((state : Structure.Annotated.state), (pid : Structure.pid)) =
         | `Avail -> false
       in
       (* FIXME do not instantiate checkbox js object *)
-      ( Some checked
-      , (Checkbox.make ~classes:[Item_list.CSS.item_graphic] ~checked ())#markup )
-    else None, make_checkbox_spacer ()
+      ( Some checked,
+        (Checkbox.make ~classes:[ Item_list.CSS.item_graphic ] ~checked ())
+          #markup )
+    else (None, make_checkbox_spacer ())
   in
-  Treeview.D.treeview_node
-    ~value:(string_of_int pid.pid)
-    ~graphic
-    ?checked
-    ~primary_text:(`Text text)
-    ()
+  Treeview.D.treeview_node ~value:(string_of_int pid.pid) ~graphic ?checked
+    ~primary_text:(`Text text) ()
 
 let make_channel
     ((_state : Structure.Annotated.state), (ch : Structure.Annotated.channel)) =
@@ -118,21 +122,17 @@ let make_channel
     | [] -> make_checkbox_spacer ()
     | _ ->
         (* FIXME do not instantiate checkbox js object*)
-        (Checkbox.make ~classes:[Item_list.CSS.item_graphic] ~checked ~indeterminate ())
+        (Checkbox.make
+           ~classes:[ Item_list.CSS.item_graphic ]
+           ~checked ~indeterminate ())
           #markup
   in
-  Treeview.D.treeview_node
-    ~value:(string_of_int ch.number)
-    ~graphic
-    ~checked
-    ~indeterminate
-    ~child_nodes
-    ~primary_text:(`Text text)
-    ()
+  Treeview.D.treeview_node ~value:(string_of_int ch.number) ~graphic ~checked
+    ~indeterminate ~child_nodes ~primary_text:(`Text text) ()
 
 let make_stream
-    ( (_state : Structure.Annotated.state)
-    , ({id; channels; _} : Structure.Annotated.structure) ) =
+    ( (_state : Structure.Annotated.state),
+      ({ id; channels; _ } : Structure.Annotated.structure) ) =
   (* FIXME stream name *)
   let text = Printf.sprintf "%s" @@ Stream.ID.to_string id in
   let compare (_, (a : Structure.Annotated.channel as 'a)) (_, (b : 'a)) =
@@ -142,79 +142,77 @@ let make_stream
   let checked, indeterminate = get_checked ~filter_empty:true child_nodes in
   (* FIXME do not instantiate checkbox js object*)
   let checkbox =
-    Checkbox.make ~classes:[Item_list.CSS.item_graphic] ~checked ~indeterminate ()
+    Checkbox.make
+      ~classes:[ Item_list.CSS.item_graphic ]
+      ~checked ~indeterminate ()
   in
-  Treeview.D.treeview_node
-    ~value:(Stream.ID.to_string id)
-    ~graphic:checkbox#markup
-    ~checked
-    ~indeterminate
-    ~child_nodes
-    ~primary_text:(`Text text)
-    ()
+  Treeview.D.treeview_node ~value:(Stream.ID.to_string id)
+    ~graphic:checkbox#markup ~checked ~indeterminate ~child_nodes
+    ~primary_text:(`Text text) ()
 
 let make_treeview (structure : Structure.Annotated.t) =
   let children = List.map make_stream structure in
   Treeview.make ~dense:true ~children ()
 
-type event = [`Structure of Structure.Annotated.t]
+type event = [ `Structure of Structure.Annotated.t ]
 
 module Streams = Map.Make (Stream.ID)
 module Channels = Map.Make (Int)
 
 let merge acc ((stream : Stream.ID.t), (chan : int), (pid : int)) =
-  Streams.update
-    stream
+  Streams.update stream
     (function
       | None ->
           let empty = Channels.empty in
-          Some (Channels.add chan [pid] empty)
+          Some (Channels.add chan [ pid ] empty)
       | Some x ->
           Some
-            (Channels.update
-               chan
-               (function
-                 | None -> Some [pid]
-                 | Some x -> Some (pid :: x))
+            (Channels.update chan
+               (function None -> Some [ pid ] | Some x -> Some (pid :: x))
                x))
     acc
 
-let merge_with_structures
-    (structures : Structure.Annotated.t)
+let merge_with_structures (structures : Structure.Annotated.t)
     (selected : int list Channels.t Streams.t) : Structure.t list =
   let open Structure.Annotated in
   List.filter_map
     (fun (id, channels) ->
       match
-        List.find_opt (fun (_, (s : structure)) -> Stream.ID.equal id s.id) structures
+        List.find_opt
+          (fun (_, (s : structure)) -> Stream.ID.equal id s.id)
+          structures
       with
       | None -> None
       | Some (_, (x : structure)) -> (
           let channels =
             List.filter_map (fun (chan, pids) ->
                 match
-                  List.find_opt (fun (_, (ch : channel)) -> ch.number = chan) x.channels
+                  List.find_opt
+                    (fun (_, (ch : channel)) -> ch.number = chan)
+                    x.channels
                 with
                 | None -> None
                 | Some (_, (ch : channel)) -> (
-                  match
-                    List.filter_map
-                      (fun (_, (pid : Structure.pid)) ->
-                        if List.mem pid.pid pids then Some pid else None)
-                      ch.pids
-                  with
-                  | [] -> None
-                  | pids ->
-                      Some
-                        { Structure.number = ch.number
-                        ; provider_name = ch.provider_name
-                        ; service_name = ch.service_name
-                        ; pids }))
+                    match
+                      List.filter_map
+                        (fun (_, (pid : Structure.pid)) ->
+                          if List.mem pid.pid pids then Some pid else None)
+                        ch.pids
+                    with
+                    | [] -> None
+                    | pids ->
+                        Some
+                          {
+                            Structure.number = ch.number;
+                            provider_name = ch.provider_name;
+                            service_name = ch.service_name;
+                            pids;
+                          } ))
             @@ Channels.bindings channels
           in
           match channels with
           | [] -> None
-          | channels -> Some {Structure.id = x.id; uri = x.uri; channels}))
+          | channels -> Some { Structure.id = x.id; uri = x.uri; channels } ))
     (Streams.bindings selected)
 
 let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
@@ -230,41 +228,39 @@ let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
         match cur#node_value x with
         | None -> acc
         | Some v -> (
-          match
-            List.find_opt
-              (fun x ->
-                match old#node_value x with
-                | None -> false
-                | Some v' -> String.equal v v')
-              old_nodes
-          with
-          | None -> acc
-          | Some node ->
-              let attr = Treeview.Attr.aria_expanded in
-              (match Element.get_attribute node attr with
-              | None -> ()
-              | Some a -> Element.set_attribute x attr a);
-              let acc =
-                match try_focus ~old:node ~cur:x with
-                | None -> acc
-                | Some _ as x -> x
-              in
-              merge acc (old#node_children node) (cur#node_children x)))
-      acc
-      cur_nodes
+            match
+              List.find_opt
+                (fun x ->
+                  match old#node_value x with
+                  | None -> false
+                  | Some v' -> String.equal v v')
+                old_nodes
+            with
+            | None -> acc
+            | Some node ->
+                let attr = Treeview.Attr.aria_expanded in
+                ( match Element.get_attribute node attr with
+                | None -> ()
+                | Some a -> Element.set_attribute x attr a );
+                let acc =
+                  match try_focus ~old:node ~cur:x with
+                  | None -> acc
+                  | Some _ as x -> x
+                in
+                merge acc (old#node_children node) (cur#node_children x) ))
+      acc cur_nodes
   in
   merge None old#root_nodes cur#root_nodes
 
 class t (structure : Structure.Annotated.t) () =
   let submit = Button.make ~label:"Применить" () in
-  let buttons = Card.D.card_action_buttons ~children:[submit#markup] () in
-  let actions = Card.D.card_actions ~children:[buttons] () in
+  let buttons = Card.D.card_action_buttons ~children:[ submit#markup ] () in
+  let actions = Card.D.card_actions ~children:[ buttons ] () in
   object (self)
     val placeholder =
       Components_lab.Placeholder.make
         ~icon:Icon.SVG.(D.icon ~d:Path.information ())
-        ~text:(`Text "Потоки не обнаружены")
-        ()
+        ~text:(`Text "Потоки не обнаружены") ()
 
     val mutable _treeview = make_treeview structure
 
@@ -279,10 +275,10 @@ class t (structure : Structure.Annotated.t) () =
       super#add_class CSS.root;
       super#add_class Box.CSS.root;
       super#add_class Box.CSS.vertical;
-      if _treeview#is_empty
-      then super#append_child placeholder
+      if _treeview#is_empty then super#append_child placeholder
       else super#append_child _treeview;
-      Dom.appendChild super#root (Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element actions);
+      Dom.appendChild super#root
+        (Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element actions);
       _on_submit <-
         Some
           (Js_of_ocaml_lwt.Lwt_js_events.clicks submit#root (fun _ _ ->
@@ -306,30 +302,20 @@ class t (structure : Structure.Annotated.t) () =
       merge_with_structures _structure
       @@ List.fold_left
            (fun acc node ->
-             let ( >>= ) x f =
-               match x with
-               | None -> None
-               | Some x -> f x
-             in
+             let ( >>= ) x f = match x with None -> None | Some x -> f x in
              let value =
-               _treeview#node_value node
-               >>= int_of_string_opt
-               >>= fun pid ->
+               _treeview#node_value node >>= int_of_string_opt >>= fun pid ->
                Js.Opt.to_option @@ _treeview#node_parent node
                >>= fun channel' ->
-               _treeview#node_value channel'
-               >>= int_of_string_opt
+               _treeview#node_value channel' >>= int_of_string_opt
                >>= fun channel ->
                Js.Opt.to_option @@ _treeview#node_parent channel'
                >>= _treeview#node_value
                >>= Stream.ID.of_string_opt
                >>= fun stream -> Some (stream, channel, pid)
              in
-             match value with
-             | None -> acc
-             | Some v -> merge acc v)
-           Streams.empty
-           selected
+             match value with None -> acc | Some v -> merge acc v)
+           Streams.empty selected
 
     method notify : event -> unit =
       function
@@ -340,11 +326,10 @@ class t (structure : Structure.Annotated.t) () =
           let focus_target = merge_trees ~old ~cur in
           super#remove_child old;
           old#destroy ();
-          if cur#is_empty
-          then self#append_treeview placeholder
+          if cur#is_empty then self#append_treeview placeholder
           else (
             self#append_treeview cur;
-            super#remove_child placeholder);
+            super#remove_child placeholder );
           Option.iter (fun x -> x##focus) focus_target;
           _treeview <- cur
 

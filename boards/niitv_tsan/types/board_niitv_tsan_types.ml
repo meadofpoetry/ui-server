@@ -2,32 +2,21 @@ open Application_types
 
 let ( % ) f g x = f (g x)
 
-type 'a ts =
-  { data : 'a
-  ; timestamp : Time.t }
+type 'a ts = { data : 'a; timestamp : Time.t } [@@deriving yojson, eq, show]
+
+let stamp (timestamp : Time.t) (data : 'a) = { data; timestamp }
+
+type 'a tspan = { data : 'a; from : Time.t; till : Time.t }
 [@@deriving yojson, eq, show]
 
-let stamp (timestamp : Time.t) (data : 'a) = {data; timestamp}
+type devinfo = { typ : int; ver : int } [@@deriving yojson, eq]
 
-type 'a tspan =
-  { data : 'a
-  ; from : Time.t
-  ; till : Time.t }
-[@@deriving yojson, eq, show]
-
-type devinfo =
-  { typ : int
-  ; ver : int }
-[@@deriving yojson, eq]
-
-let pp_devinfo ppf di = Format.fprintf ppf "type: 0x%02X, version: %d" di.typ di.ver
+let pp_devinfo ppf di =
+  Format.fprintf ppf "type: 0x%02X, version: %d" di.typ di.ver
 
 let show_devinfo = Format.asprintf "%a" pp_devinfo
 
-type input =
-  | SPI
-  | ASI
-[@@deriving enum, eq]
+type input = SPI | ASI [@@deriving enum, eq]
 
 let pp_input ppf = function
   | SPI -> Format.pp_print_string ppf "SPI"
@@ -41,14 +30,12 @@ let input_of_yojson json =
   match Util_json.Int.of_yojson json with
   | Error _ as e -> e
   | Ok i -> (
-    match input_of_enum i with
-    | None -> Error (Printf.sprintf "input_of_yojson: invalid int value (%d)" i)
-    | Some x -> Ok x)
+      match input_of_enum i with
+      | None ->
+          Error (Printf.sprintf "input_of_yojson: invalid int value (%d)" i)
+      | Some x -> Ok x )
 
-type stream =
-  | ID of Stream.Multi_TS_ID.t
-  | Full of Stream.t
-[@@deriving eq]
+type stream = ID of Stream.Multi_TS_ID.t | Full of Stream.t [@@deriving eq]
 
 let pp_stream ppf = function
   | ID x -> Stream.Multi_TS_ID.pp ppf x
@@ -64,15 +51,17 @@ let stream_of_yojson json =
   match Stream.Multi_TS_ID.of_yojson json with
   | Ok x -> Ok (ID x)
   | Error _ -> (
-    match Stream.of_yojson json with
-    | Ok x -> Ok (Full x)
-    | Error _ -> Error "stream_of_yojson: got neither Multi TS ID, nor stream")
+      match Stream.of_yojson json with
+      | Ok x -> Ok (Full x)
+      | Error _ -> Error "stream_of_yojson: got neither Multi TS ID, nor stream"
+      )
 
-type t2mi_mode =
-  { enabled : bool
-  ; pid : int
-  ; t2mi_stream_id : int
-  ; stream : stream }
+type t2mi_mode = {
+  enabled : bool;
+  pid : int;
+  t2mi_stream_id : int;
+  stream : stream;
+}
 [@@deriving yojson, show]
 
 let equal_t2mi_mode (a : t2mi_mode as 'a) (b : 'a) =
@@ -80,42 +69,41 @@ let equal_t2mi_mode (a : t2mi_mode as 'a) (b : 'a) =
   && a.pid = b.pid
   && a.t2mi_stream_id = b.t2mi_stream_id
   &&
-  match a.stream, b.stream with
+  match (a.stream, b.stream) with
   | Full x, Full y ->
       Stream.ID.equal x.id y.id && Stream.equal_container_id x.orig_id y.orig_id
-  | Full x, ID y | ID y, Full x -> Stream.equal_container_id x.orig_id (TS_multi y)
+  | Full x, ID y | ID y, Full x ->
+      Stream.equal_container_id x.orig_id (TS_multi y)
   | ID x, ID y -> Stream.Multi_TS_ID.equal x y
 
-type jitter_mode =
-  { pid : int
-  ; stream : Stream.Multi_TS_ID.t
-  ; stream_id : Stream.ID.t option [@default None] }
+type jitter_mode = {
+  pid : int;
+  stream : Stream.Multi_TS_ID.t;
+  stream_id : Stream.ID.t option; [@default None]
+}
 [@@deriving yojson, show]
 
 let equal_jitter_mode (a : jitter_mode as 'a) (b : 'a) =
   a.pid = b.pid
   && Stream.Multi_TS_ID.equal a.stream b.stream
   &&
-  match a.stream_id, b.stream_id with
+  match (a.stream_id, b.stream_id) with
   | None, Some _ | Some _, None -> false
   | None, None -> true
   | Some a, Some b -> Stream.ID.equal a b
 
 (** Config *)
 
-type config =
-  { input : input
-  ; input_source : int
-  ; t2mi_source : int
-  ; t2mi_mode : t2mi_mode
-  ; jitter_mode : jitter_mode }
+type config = {
+  input : input;
+  input_source : int;
+  t2mi_source : int;
+  t2mi_mode : t2mi_mode;
+  jitter_mode : jitter_mode;
+}
 [@@deriving yojson, eq]
 
-type packet_sz =
-  | Ts188
-  | Ts192
-  | Ts204
-[@@deriving show, eq]
+type packet_sz = Ts188 | Ts192 | Ts204 [@@deriving show, eq]
 
 let packet_sz_to_string : packet_sz -> string = function
   | Ts188 -> "Ts188"
@@ -132,105 +120,112 @@ let packet_sz_to_yojson x : Yojson.Safe.t = `String (packet_sz_to_string x)
 
 let packet_sz_of_yojson = function
   | `String s -> (
-    match packet_sz_of_string_option s with
-    | Some x -> Ok x
-    | None -> Error (Printf.sprintf "packet_sz_of_yojson: bad string (%s)" s))
+      match packet_sz_of_string_option s with
+      | Some x -> Ok x
+      | None -> Error (Printf.sprintf "packet_sz_of_yojson: bad string (%s)" s)
+      )
   | x ->
       Error
-        (Printf.sprintf "packet_sz_of_yojson: not string value (%s)"
-        @@ Yojson.Safe.to_string x)
+        ( Printf.sprintf "packet_sz_of_yojson: not string value (%s)"
+        @@ Yojson.Safe.to_string x )
 
 (* TODO extend, add all info that is provided by the board *)
-type status =
-  { timestamp : Time.t
-  ; load : float
-  ; reset : bool
-  ; ts_num : int
-  ; services_num : int
-  ; bitrate : int
-  ; packet_sz : packet_sz
-  ; has_sync : bool
-  ; has_stream : bool }
+type status = {
+  timestamp : Time.t;
+  load : float;
+  reset : bool;
+  ts_num : int;
+  services_num : int;
+  bitrate : int;
+  packet_sz : packet_sz;
+  has_sync : bool;
+  has_stream : bool;
+}
 [@@deriving yojson, show, eq]
 
 module Deverr = struct
-  type t =
-    { timestamp : Time.t
-    ; code : int
-    ; count : int
-    ; source : source
-    ; param : int option }
+  type t = {
+    timestamp : Time.t;
+    code : int;
+    count : int;
+    source : source;
+    param : int option;
+  }
 
-  and source =
-    | Hardware
-    | Protocol
-  [@@deriving yojson]
+  and source = Hardware | Protocol [@@deriving yojson]
 end
 
 module TS_info = struct
-  type t =
-    { complete : bool
-    ; services_num : int
-    ; nw_pid : int
-    ; ts_id : int
-    ; nw_id : int
-    ; orig_nw_id : int
-    ; nw_name : string
-    ; bouquet_name : string }
+  type t = {
+    complete : bool;
+    services_num : int;
+    nw_pid : int;
+    ts_id : int;
+    nw_id : int;
+    orig_nw_id : int;
+    nw_name : string;
+    bouquet_name : string;
+  }
   [@@deriving yojson, eq]
 end
 
 module PID = struct
-  type t =
-    { has_pts : bool
-    ; has_pcr : bool
-    ; scrambled : bool
-    ; present : bool
-    ; service_id : int option
-    ; service_name : string option [@default None]
-    ; typ : MPEG_TS.PID.Type.t [@key "type"] }
+  type t = {
+    has_pts : bool;
+    has_pcr : bool;
+    scrambled : bool;
+    present : bool;
+    service_id : int option;
+    service_name : string option; [@default None]
+    typ : MPEG_TS.PID.Type.t; [@key "type"]
+  }
   [@@deriving yojson, eq, show, ord]
 end
 
 module Service = struct
-  type t =
-    { name : string
-    ; provider_name : string
-    ; pmt_pid : int
-    ; pcr_pid : int
-    ; has_pmt : bool
-    ; has_sdt : bool
-    ; dscr : bool
-    ; dscr_list : bool
-    ; eit_schedule : bool
-    ; eit_pf : bool
-    ; free_ca_mode : bool
-    ; running_status : int
-    ; service_type : int
-    ; service_type_list : int
-    ; elements : int list }
+  type t = {
+    name : string;
+    provider_name : string;
+    pmt_pid : int;
+    pcr_pid : int;
+    has_pmt : bool;
+    has_sdt : bool;
+    dscr : bool;
+    dscr_list : bool;
+    eit_schedule : bool;
+    eit_pf : bool;
+    free_ca_mode : bool;
+    running_status : int;
+    service_type : int;
+    service_type_list : int;
+    elements : int list;
+  }
   [@@deriving yojson, eq, show]
 end
 
 module SI_PSI_section = struct
-  type id =
-    { table_id : int
-    ; table_id_ext : int
-    ; id_ext_1 : int (* For SDT - orig nw id, for EIT - ts id *)
-    ; id_ext_2 : int (* For EIT - orig nw id *)
-    ; section_syntax : bool
-    ; section : int }
+  type id = {
+    table_id : int;
+    table_id_ext : int;
+    id_ext_1 : int;
+    (* For SDT - orig nw id, for EIT - ts id *)
+    id_ext_2 : int;
+    (* For EIT - orig nw id *)
+    section_syntax : bool;
+    section : int;
+  }
   [@@deriving yojson, show, eq, ord]
 
-  type t =
-    { pid : int
-    ; version : int
-    ; service_id : int option
-    ; service_name : string option [@default None]
-    ; eit_segment_lsn : int
-    ; eit_last_table_id : int
-    ; last_section : int
-    ; length : int }
+  type t = {
+    pid : int;
+    version : int;
+    service_id : int option;
+    service_name : string option; [@default None]
+    eit_segment_lsn : int;
+    eit_last_table_id : int;
+    last_section : int;
+    length : int;
+  }
   [@@deriving yojson, show, eq, ord]
 
   module Dump = struct
@@ -242,88 +237,94 @@ module SI_PSI_section = struct
       | Unknown
     [@@deriving yojson]
 
-    type t =
-      { stream_id : Stream.Multi_TS_ID.t
-      ; table_id : int
-      ; section_id : int
-      ; section : string
-      ; content : Si_psi_parser_types.Node.t list option }
+    type t = {
+      stream_id : Stream.Multi_TS_ID.t;
+      table_id : int;
+      section_id : int;
+      section : string;
+      content : Si_psi_parser_types.Node.t list option;
+    }
     [@@deriving yojson]
   end
 end
 
 module SI_PSI_table = struct
-  type id =
-    { table_id : int
-    ; table_id_ext : int
-    ; id_ext_1 : int (* See SI_PSI_section.id *)
-    ; id_ext_2 : int (* See SI_PSI_section.id *)
-    ; section_syntax : bool }
+  type id = {
+    table_id : int;
+    table_id_ext : int;
+    id_ext_1 : int;
+    (* See SI_PSI_section.id *)
+    id_ext_2 : int;
+    (* See SI_PSI_section.id *)
+    section_syntax : bool;
+  }
   [@@deriving yojson, show, eq, ord]
 
-  type section_info =
-    { section : int
-    ; length : int }
+  type section_info = { section : int; length : int }
   [@@deriving yojson, show, eq, ord]
 
-  type t =
-    { pid : int
-    ; version : int
-    ; service_id : int option
-    ; service_name : string option [@default None]
-    ; last_section : int
-    ; eit_segment_lsn : int
-    ; eit_last_table_id : int
-    ; sections : section_info list }
+  type t = {
+    pid : int;
+    version : int;
+    service_id : int option;
+    service_name : string option; [@default None]
+    last_section : int;
+    eit_segment_lsn : int;
+    eit_last_table_id : int;
+    sections : section_info list;
+  }
   [@@deriving yojson, show, eq, ord]
 end
 
 module Bitrate = struct
-  type value =
-    { min : int
-    ; max : int
-    ; cur : int }
+  type value = { min : int; max : int; cur : int }
 
-  and 'a t =
-    { total : 'a
-    ; effective : 'a
-    ; tables : (SI_PSI_table.id * 'a) list
-    ; pids : (int * 'a) list
-    ; services : (int * 'a) list
-    ; timestamp : Time.t }
+  and 'a t = {
+    total : 'a;
+    effective : 'a;
+    tables : (SI_PSI_table.id * 'a) list;
+    pids : (int * 'a) list;
+    services : (int * 'a) list;
+    timestamp : Time.t;
+  }
 
   and cur = int t
 
   and ext = value t [@@deriving yojson, eq]
 
   let ext_to_cur (x : ext) : cur =
-    let f l = List.map (fun (id, x) -> id, x.cur) l in
-    { total = x.total.cur
-    ; effective = x.effective.cur
-    ; tables = f x.tables
-    ; pids = f x.pids
-    ; services = f x.services
-    ; timestamp = x.timestamp }
+    let f l = List.map (fun (id, x) -> (id, x.cur)) l in
+    {
+      total = x.total.cur;
+      effective = x.effective.cur;
+      tables = f x.tables;
+      pids = f x.pids;
+      services = f x.services;
+      timestamp = x.timestamp;
+    }
 
-  let value_of_int x = {min = x; max = x; cur = x}
+  let value_of_int x = { min = x; max = x; cur = x }
 
   let cur_to_ext (x : cur) : ext =
-    let f l = List.map (fun (id, x) -> id, value_of_int x) l in
-    { total = value_of_int x.total
-    ; effective = value_of_int x.effective
-    ; tables = f x.tables
-    ; pids = f x.pids
-    ; services = f x.services
-    ; timestamp = x.timestamp }
+    let f l = List.map (fun (id, x) -> (id, value_of_int x)) l in
+    {
+      total = value_of_int x.total;
+      effective = value_of_int x.effective;
+      tables = f x.tables;
+      pids = f x.pids;
+      services = f x.services;
+      timestamp = x.timestamp;
+    }
 end
 
 module Structure = struct
-  type t =
-    { info : TS_info.t
-    ; services : (int * Service.t) list
-    ; tables : (SI_PSI_table.id * SI_PSI_table.t) list
-    ; pids : (int * PID.t) list
-    ; timestamp : Time.t }
+  type t = {
+    info : TS_info.t;
+    services : (int * Service.t) list;
+    tables : (SI_PSI_table.id * SI_PSI_table.t) list;
+    pids : (int * PID.t) list;
+    timestamp : Time.t;
+  }
   [@@deriving eq, yojson]
 
   let time (t : t) = t.timestamp
@@ -346,96 +347,95 @@ module Structure = struct
 end
 
 module T2mi_info = struct
-  type l1_pre =
-    { typ : int
-    ; preamble : int
-    ; fft : int
-    ; mixed_flag : bool
-    ; bwt_ext : bool
-    ; s1 : int
-    ; s2 : int
-    ; l1_repetition_flag : bool
-    ; guard_interval : int
-    ; papr : int
-    ; l1_mod : int
-    ; l1_cod : int
-    ; l1_fec_type : int
-    ; l1_post_size : int
-    ; l1_post_info_size : int
-    ; pilot_pattern : int
-    ; tx_id_availability : int
-    ; cell_id : int
-    ; network_id : int
-    ; t2_system_id : int
-    ; num_t2_frames : int
-    ; num_data_symbols : int
-    ; regen_flag : int
-    ; l1_post_extension : bool
-    ; num_rf : int
-    ; current_rf_idx : int
-    ; t2_version : int
-    ; l1_post_scrambled : bool
-    ; t2_base_lite : bool
-    ; reserved : int }
+  type l1_pre = {
+    typ : int;
+    preamble : int;
+    fft : int;
+    mixed_flag : bool;
+    bwt_ext : bool;
+    s1 : int;
+    s2 : int;
+    l1_repetition_flag : bool;
+    guard_interval : int;
+    papr : int;
+    l1_mod : int;
+    l1_cod : int;
+    l1_fec_type : int;
+    l1_post_size : int;
+    l1_post_info_size : int;
+    pilot_pattern : int;
+    tx_id_availability : int;
+    cell_id : int;
+    network_id : int;
+    t2_system_id : int;
+    num_t2_frames : int;
+    num_data_symbols : int;
+    regen_flag : int;
+    l1_post_extension : bool;
+    num_rf : int;
+    current_rf_idx : int;
+    t2_version : int;
+    l1_post_scrambled : bool;
+    t2_base_lite : bool;
+    reserved : int;
+  }
   [@@deriving yojson, show, eq]
 
-  type l1_post_conf =
-    { sub_slices_per_frame : int
-    ; aux_config_rfu : int
-    ; rf : t2_l1_post_conf_rf list
-    ; fef : t2_l1_post_conf_fef option
-    ; plp : t2_l1_post_conf_plp list
-    ; fef_length_msb : int
-    ; reserved_2 : int
-    ; aux : t2_l1_post_conf_aux list }
+  type l1_post_conf = {
+    sub_slices_per_frame : int;
+    aux_config_rfu : int;
+    rf : t2_l1_post_conf_rf list;
+    fef : t2_l1_post_conf_fef option;
+    plp : t2_l1_post_conf_plp list;
+    fef_length_msb : int;
+    reserved_2 : int;
+    aux : t2_l1_post_conf_aux list;
+  }
 
-  and t2_l1_post_conf_rf =
-    { rf_idx : int
-    ; frequency : int }
+  and t2_l1_post_conf_rf = { rf_idx : int; frequency : int }
 
-  and t2_l1_post_conf_fef =
-    { fef_type : int
-    ; fef_length : int
-    ; fef_interval : int }
+  and t2_l1_post_conf_fef = {
+    fef_type : int;
+    fef_length : int;
+    fef_interval : int;
+  }
 
-  and t2_l1_post_conf_plp =
-    { plp_id : int
-    ; plp_type : int
-    ; plp_payload_type : int
-    ; ff_flag : bool
-    ; first_rf_idx : int
-    ; first_frame_idx : int
-    ; plp_group_id : int
-    ; plp_cod : int
-    ; plp_mod : int
-    ; plp_rotation : bool
-    ; plp_fec_type : int
-    ; plp_num_blocks_max : int
-    ; frame_interval : int
-    ; time_il_length : int
-    ; time_il_type : bool
-    ; in_band_a_flag : bool
-    ; in_band_b_flag : bool
-    ; reserved_1 : int
-    ; plp_mode : int
-    ; static_flag : bool
-    ; static_padding_flag : bool }
+  and t2_l1_post_conf_plp = {
+    plp_id : int;
+    plp_type : int;
+    plp_payload_type : int;
+    ff_flag : bool;
+    first_rf_idx : int;
+    first_frame_idx : int;
+    plp_group_id : int;
+    plp_cod : int;
+    plp_mod : int;
+    plp_rotation : bool;
+    plp_fec_type : int;
+    plp_num_blocks_max : int;
+    frame_interval : int;
+    time_il_length : int;
+    time_il_type : bool;
+    in_band_a_flag : bool;
+    in_band_b_flag : bool;
+    reserved_1 : int;
+    plp_mode : int;
+    static_flag : bool;
+    static_padding_flag : bool;
+  }
 
-  and t2_l1_post_conf_aux =
-    { aux_stream_type : int
-    ; aux_private_conf : int }
+  and t2_l1_post_conf_aux = { aux_stream_type : int; aux_private_conf : int }
   [@@deriving yojson, show, eq]
 
-  type l1 =
-    { l1_pre : l1_pre
-    ; l1_post_conf : l1_post_conf }
+  type l1 = { l1_pre : l1_pre; l1_post_conf : l1_post_conf }
   [@@deriving yojson, show, eq]
 
-  type t =
-    { packets : int list
-    ; t2mi_pid : int option
-    ; l1 : l1 option
-    ; timestamp : Time.t }
+  type t = {
+    packets : int list;
+    t2mi_pid : int option;
+    l1 : l1 option;
+    timestamp : Time.t;
+  }
   [@@deriving yojson, show, eq]
 end
 
@@ -463,18 +463,23 @@ module T2mi_sequence = struct
    * which have its own meaning for each packet type
    *)
 
-  type item =
-    { typ : int (* T2-MI packet type according to TS 102 773 *)
-    ; super_frame : int
-    ; stream_id : int
-    ; frame : int (* for packet types 0x00 .. 0x02, 0x10 .. 0x12 *)
-    ; count : int
-    ; plp : int (* only for BB frames *)
-    ; l1_param_1 : int
-          (* L1DYN_CURR.FRAME_IDX  for L1 current,
-           * L1DYN_NEXT.FRAME_IDX for L1 future *)
-    ; l1_param_2 : int (* L1DYN_NEXT2.FRAME_IDX for L1 future *)
-    ; ts_packet : int }
+  type item = {
+    typ : int;
+    (* T2-MI packet type according to TS 102 773 *)
+    super_frame : int;
+    stream_id : int;
+    frame : int;
+    (* for packet types 0x00 .. 0x02, 0x10 .. 0x12 *)
+    count : int;
+    plp : int;
+    (* only for BB frames *)
+    l1_param_1 : int;
+    (* L1DYN_CURR.FRAME_IDX  for L1 current,
+     * L1DYN_NEXT.FRAME_IDX for L1 future *)
+    l1_param_2 : int;
+    (* L1DYN_NEXT2.FRAME_IDX for L1 future *)
+    ts_packet : int;
+  }
   [@@deriving yojson]
 
   type t = item list [@@deriving yojson]
@@ -483,27 +488,27 @@ end
 module Streams = struct
   type streams_states = Stream.t tspan list [@@deriving yojson]
 
-  type streams_unique = (Stream.t * [`Now | `Last of Time.t]) list [@@deriving yojson]
+  type streams_unique = (Stream.t * [ `Now | `Last of Time.t ]) list
+  [@@deriving yojson]
 end
 
 module Error = struct
-  type segmentation =
-    { errors : float
-    ; no_stream : float
-    ; no_measure : float }
+  type segmentation = { errors : float; no_stream : float; no_measure : float }
   [@@deriving yojson]
 
-  type 'a e =
-    { count : int
-    ; err_code : int
-    ; err_ext : int
-    ; is_t2mi : bool
-    ; multi_pid : bool
-    ; pid : 'a
-    ; packet : int32
-    ; param_1 : int32
-    ; param_2 : int32 (* t2mi stream id for t2mi error *)
-    ; timestamp : Time.t }
+  type 'a e = {
+    count : int;
+    err_code : int;
+    err_ext : int;
+    is_t2mi : bool;
+    multi_pid : bool;
+    pid : 'a;
+    packet : int32;
+    param_1 : int32;
+    param_2 : int32;
+    (* t2mi stream id for t2mi error *)
+    timestamp : Time.t;
+  }
 
   and t = int e [@@deriving yojson, eq, show]
 
@@ -511,10 +516,8 @@ module Error = struct
 
   type compressed = percent tspan list
 
-  and percent =
-    { errors : float
-    ; no_stream : float }
-  [@@deriving yojson]
+  and percent = { errors : float; no_stream : float } [@@deriving yojson]
 end
 
-let board_id : Topology.board_id = {manufacturer = "NIITV"; model = "TSAN"; version = 5}
+let board_id : Topology.board_id =
+  { manufacturer = "NIITV"; model = "TSAN"; version = 5 }

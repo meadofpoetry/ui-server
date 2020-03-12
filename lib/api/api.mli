@@ -1,18 +1,9 @@
-type 'a raw =
-  { data : 'a
-  ; has_more : bool
-  ; order : [ `Asc | `Desc ]
-  }
+type 'a raw = { data : 'a; has_more : bool; order : [ `Asc | `Desc ] }
 
-type ('a, 'b) rows =
-  | Compressed of 'b
-  | Raw of 'a raw
+type ('a, 'b) rows = Compressed of 'b | Raw of 'a raw
 
 module Show_order : sig
-  type t =
-    [ `Asc
-    | `Desc
-    ]
+  type t = [ `Asc | `Desc ]
 
   val typ : string
 
@@ -24,42 +15,36 @@ end
 val raw_to_yojson : ('a -> Yojson.Safe.t) -> 'a raw -> Yojson.Safe.t
 
 val raw_of_yojson :
-  (Yojson.Safe.t -> ('a, string) result) -> Yojson.Safe.t -> ('a raw, string) result
+  (Yojson.Safe.t -> ('a, string) result) ->
+  Yojson.Safe.t ->
+  ('a raw, string) result
 
 val rows_to_yojson :
-  ('a -> Yojson.Safe.t) -> ('b -> Yojson.Safe.t) -> ('a, 'b) rows -> Yojson.Safe.t
+  ('a -> Yojson.Safe.t) ->
+  ('b -> Yojson.Safe.t) ->
+  ('a, 'b) rows ->
+  Yojson.Safe.t
 
 val rows_of_yojson :
-     (Yojson.Safe.t -> ('a, string) result)
-  -> (Yojson.Safe.t -> ('b, string) result)
-  -> Yojson.Safe.t
-  -> (('a, 'b) rows, string) result
+  (Yojson.Safe.t -> ('a, string) result) ->
+  (Yojson.Safe.t -> ('b, string) result) ->
+  Yojson.Safe.t ->
+  (('a, 'b) rows, string) result
 
-type _ key =
-  | Key : string -> string key
-  | Auth : (string * string) key
+type _ key = Key : string -> string key | Auth : (string * string) key
 
 type env = { env : 'a. 'a key -> 'a option }
 
 (* TODO elaborate this *)
-type 'a response =
-  [ `Value of 'a
-  | `Unit
-  | `Error of string
-  | `Not_implemented
-  ]
+type 'a response = [ `Value of 'a | `Unit | `Error of string | `Not_implemented ]
 
 module Authorize : sig
-  type error =
-    [ `Need_auth
-    | `Wrong_password
-    | `Unknown of string
-    ]
+  type error = [ `Need_auth | `Wrong_password | `Unknown of string ]
 
   val auth :
-       (name:string -> pass:string -> ('id, ([> error ] as 'b)) Lwt_result.t)
-    -> env
-    -> ('id, 'b) Lwt_result.t
+    (name:string -> pass:string -> ('id, ([> error ] as 'b)) Lwt_result.t) ->
+    env ->
+    ('id, 'b) Lwt_result.t
 end
 
 type ws_msg_code =
@@ -96,8 +81,7 @@ type 'a ws_message =
   | `Unsubscribe of int
   | `Unsubscribed
   | `Event of 'a
-  | `Error of string
-  ]
+  | `Error of string ]
 
 module type WS_BODY = sig
   type t
@@ -132,14 +116,14 @@ module type S = sig
   val merge : ?prefix:string -> t list -> t
 
   val handle :
-       t
-    -> state:state
-    -> ?meth:meth
-    -> ?forbidden:(user -> response)
-    -> ?default:(user -> response)
-    -> env:env
-    -> redir:(env -> (user, Authorize.error) Lwt_result.t)
-    -> path
-    -> string
-    -> response
+    t ->
+    state:state ->
+    ?meth:meth ->
+    ?forbidden:(user -> response) ->
+    ?default:(user -> response) ->
+    env:env ->
+    redir:(env -> (user, Authorize.error) Lwt_result.t) ->
+    path ->
+    string ->
+    response
 end

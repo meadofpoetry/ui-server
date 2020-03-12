@@ -1,6 +1,5 @@
 (library
-  (name       server_http_js)
-  (libraries  api_js
-              server_types
-              application_types)
-  (preprocess (pps js_of_ocaml-ppx)))
+ (name server_http_js)
+ (libraries api_js server_types application_types)
+ (preprocess
+  (pps js_of_ocaml-ppx)))

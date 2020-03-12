@@ -31,14 +31,9 @@ let parse bs off =
      ; pil : 20 : save_offset_to (off_1), bitstring
      |} ->
       let parsed = parse_label pil in
-      let pil =
-        match%bitstring pil with
-        | {|pil : 20|} -> pil
-      in
-      [ Node.make ~offset:off 4 "reserved_future_use" (Bits (Int rfu))
-      ; Node.make
-          ~parsed
-          ~offset:(off + off_1)
-          20
-          "programme_identification_label"
-          (Bits (Int pil)) ]
+      let pil = match%bitstring pil with {|pil : 20|} -> pil in
+      [
+        Node.make ~offset:off 4 "reserved_future_use" (Bits (Int rfu));
+        Node.make ~parsed ~offset:(off + off_1) 20
+          "programme_identification_label" (Bits (Int pil));
+      ]

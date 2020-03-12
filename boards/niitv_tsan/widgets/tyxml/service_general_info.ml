@@ -38,13 +38,8 @@ struct
     in
     list_item ~classes ?a ~primary_text ?meta ()
 
-  let create
-      ?(a = [])
-      ?(hex = return false)
-      ?children
-      ?(bitrate = return None)
-      ?(info : (int * Service.t) option wrap = return None)
-      () =
+  let create ?(a = []) ?(hex = return false) ?children ?(bitrate = return None)
+      ?(info : (int * Service.t) option wrap = return None) () =
     let classes = return [ CSS.root ] in
     let elements =
       fmap
@@ -61,11 +56,8 @@ struct
       | None ->
           let meta f info =
             Xml.Wutils.l2
-              (fun hex -> function
-                | None -> not_available
-                | Some x -> f hex x)
-              hex
-              info
+              (fun hex -> function None -> not_available | Some x -> f hex x)
+              hex info
           in
           create_item
             ~a:[ a_user_data "type" (return "service-id") ]
@@ -77,7 +69,8 @@ struct
                 ~primary_text:(`Text (return "PMT PID"))
                 ~meta:
                   (meta
-                     (fun hex (_, (x : Service.t)) -> Util.pid_to_string ~hex x.pmt_pid)
+                     (fun hex (_, (x : Service.t)) ->
+                       Util.pid_to_string ~hex x.pmt_pid)
                      info)
                 ()
           @:: create_item
@@ -85,33 +78,39 @@ struct
                 ~primary_text:(`Text (return "PCR PID"))
                 ~meta:
                   (meta
-                     (fun hex (_, (x : Service.t)) -> Util.pid_to_string ~hex x.pcr_pid)
+                     (fun hex (_, (x : Service.t)) ->
+                       Util.pid_to_string ~hex x.pcr_pid)
                      info)
                 ()
           @:: create_item
                 ~a:[ a_user_data "type" (return "bitratenow") ]
                 ~primary_text:(`Text (return "Битрейт"))
-                ~meta:(meta (fun _ (x : Bitrate.value) -> format_bitrate x.cur) bitrate)
+                ~meta:
+                  (meta
+                     (fun _ (x : Bitrate.value) -> format_bitrate x.cur)
+                     bitrate)
                 ()
           @:: create_item
                 ~a:[ a_user_data "type" (return "bitratemin") ]
                 ~primary_text:(`Text (return "Min"))
-                ~meta:(meta (fun _ (x : Bitrate.value) -> format_bitrate x.min) bitrate)
+                ~meta:
+                  (meta
+                     (fun _ (x : Bitrate.value) -> format_bitrate x.min)
+                     bitrate)
                 ()
           @:: create_item
                 ~a:[ a_user_data "type" (return "bitratemax") ]
                 ~primary_text:(`Text (return "Max"))
-                ~meta:(meta (fun _ (x : Bitrate.value) -> format_bitrate x.max) bitrate)
+                ~meta:
+                  (meta
+                     (fun _ (x : Bitrate.value) -> format_bitrate x.max)
+                     bitrate)
                 ()
           @:: nil ()
     in
-    list
-      ~classes
+    list ~classes
       ~a:(a_user_data "elements" elements :: a)
-      ~dense:true
-      ~non_interactive:true
-      ~children
-      ()
+      ~dense:true ~non_interactive:true ~children ()
 end
 
 module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)

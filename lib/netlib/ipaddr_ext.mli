@@ -5,9 +5,9 @@ module V4 : sig
 
   val multicast : range
 
-  val range_of_pair : (t * t) -> range option
+  val range_of_pair : t * t -> range option
 
-  val range_to_pair : range -> (t * t)
+  val range_to_pair : range -> t * t
 
   val equal : t -> t -> bool
 
@@ -27,8 +27,11 @@ module V4 : sig
 
   val range_to_seq : range list -> t Seq.t
 
-  val gen_in_ranges : ?forbidden:t list -> allowed:range -> ('a * range list) list -> ('a * t) list
-
+  val gen_in_ranges :
+    ?forbidden:t list ->
+    allowed:range ->
+    ('a * range list) list ->
+    ('a * t) list
 end
 
 module V6 : sig
@@ -38,10 +41,11 @@ module V6 : sig
 
   val to_yojson : t -> Yojson.Safe.t
 
-  val of_yojson : Yojson.Safe.t -> (t, string) result           
+  val of_yojson : Yojson.Safe.t -> (t, string) result
+end
 
-end       
-
-include module type of struct include Ipaddr end
-                       with module V4 := Ipaddr.V4
-                       with module V6 := Ipaddr.V6
+include module type of struct
+    include Ipaddr
+  end
+  with module V4 := Ipaddr.V4
+  with module V6 := Ipaddr.V6

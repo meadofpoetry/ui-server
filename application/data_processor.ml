@@ -8,10 +8,7 @@ module Api_template = Api_cohttp_template.Make (User)
 
 type tab = Netlib.Uri.Path.t * Api_template.template_props
 
-type tag =
-  [ `Input of Topology.topo_input
-  | `Stream
-  ]
+type tag = [ `Input of Topology.topo_input | `Stream ]
 
 type t =
   < reset : (url * Stream.t) list -> unit Lwt.t
@@ -22,21 +19,20 @@ type t =
   ; log_source : Stream.Log_message.source
   ; finalize : unit -> unit Lwt.t >
 
-type error =
-  [ Db.conn_error
-  | Kv.RW.parse_error
-  | Kv_v.error
-  ]
+type error = [ Db.conn_error | Kv.RW.parse_error | Kv_v.error ]
 
 module type PROCESS = sig
   val typ : string
 
-  val create : Topology.topo_cpu -> Kv.RW.t -> Db.t -> (t, [> error ]) Lwt_result.t
+  val create :
+    Topology.topo_cpu -> Kv.RW.t -> Db.t -> (t, [> error ]) Lwt_result.t
 end
 
 let create_dispatcher l =
   let tbl = Hashtbl.create 10 in
-  List.iter (fun (module P : PROCESS) -> Hashtbl.add tbl P.typ (module P : PROCESS)) l;
+  List.iter
+    (fun (module P : PROCESS) -> Hashtbl.add tbl P.typ (module P : PROCESS))
+    l;
   tbl
 
 let pp_error _ppf = failwith "todo"
@@ -50,4 +46,4 @@ let create tbl (cpu : Topology.topo_cpu) config db =
       | Error e ->
           Logs.err (fun m -> m "Software data processor error %a" pp_error e);
           Lwt.return_none
-      | Ok v -> Lwt.return_some v)
+      | Ok v -> Lwt.return_some v )

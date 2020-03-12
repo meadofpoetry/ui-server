@@ -22,21 +22,18 @@ struct
 
   let ( % ) f g x = f (g x)
 
-  let radio_outer_circle ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+  let radio_outer_circle ?(classes = return []) ?(a = []) ?(children = nil ())
+      () =
     let classes = fmap (List.cons CSS.outer_circle) classes in
     div ~a:(a_class classes :: a) children
 
-  let radio_inner_circle ?(classes = return []) ?(a = []) ?(children = nil ()) () =
+  let radio_inner_circle ?(classes = return []) ?(a = []) ?(children = nil ())
+      () =
     let classes = fmap (List.cons CSS.inner_circle) classes in
     div ~a:(a_class classes :: a) children
 
-  let radio_background
-      ?(classes = return [])
-      ?(a = [])
-      ?outer_circle
-      ?inner_circle
-      ?children
-      () =
+  let radio_background ?(classes = return []) ?(a = []) ?outer_circle
+      ?inner_circle ?children () =
     let classes = fmap (List.cons CSS.background) classes in
     let children =
       match children with
@@ -56,37 +53,21 @@ struct
     in
     div ~a:(a_class classes :: a) children
 
-  let radio_native_control
-      ?(classes = return [])
-      ?(a = [])
-      ?(checked = false)
-      ?(disabled = false)
-      ?input_id
-      ?name
-      () =
+  let radio_native_control ?(classes = return []) ?(a = []) ?(checked = false)
+      ?(disabled = false) ?input_id ?name () =
     let classes = fmap (List.cons CSS.native_control) classes in
     input
       ~a:
-        (a_class classes :: a_input_type (return `Radio) :: a
+        ( a_class classes :: a_input_type (return `Radio) :: a
         |> Utils.map_cons_option a_name name
         |> Utils.cons_if_lazy checked a_checked
         |> Utils.cons_if_lazy disabled a_disabled
-        |> Utils.map_cons_option a_id input_id)
+        |> Utils.map_cons_option a_id input_id )
       ()
 
-  let radio
-      ?(classes = return [])
-      ?(a = [])
-      ?input_id
-      ?checked
-      ?(disabled = false)
-      ?name
-      ?outer_circle
-      ?inner_circle
-      ?background
-      ?native_control
-      ?children
-      () : 'a elt =
+  let radio ?(classes = return []) ?(a = []) ?input_id ?checked
+      ?(disabled = false) ?name ?outer_circle ?inner_circle ?background
+      ?native_control ?children () : 'a elt =
     let classes =
       fmap (Utils.cons_if disabled CSS.disabled % List.cons CSS.root) classes
     in

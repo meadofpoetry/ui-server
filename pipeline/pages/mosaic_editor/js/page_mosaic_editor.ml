@@ -8,22 +8,21 @@ let () =
   let open React in
   let (scaffold : Components.Scaffold.t) = Js.Unsafe.global##.scaffold in
   let thread =
-    Http_wm.get_layout ()
-    >>=? fun wm ->
-    Http_structure.get_annotated ()
-    >>=? fun streams ->
+    Http_wm.get_layout () >>=? fun wm ->
+    Http_structure.get_annotated () >>=? fun streams ->
     Api_js.Websocket.JSON.open_socket ~path:(Uri.Path.Format.of_string "ws") ()
     >>=? fun socket ->
-    Http_wm.Event.get socket
-    >>=? fun (_, wm_event) ->
-    Http_structure.Event.get_annotated socket
-    >>=? fun (_, streams_event) ->
+    Http_wm.Event.get socket >>=? fun (_, wm_event) ->
+    Http_structure.Event.get_annotated socket >>=? fun (_, streams_event) ->
     let editor = Container_editor.make ~scaffold streams wm in
     let notif =
       E.merge
         (fun _ -> editor#notify)
         ()
-        [E.map (fun x -> `Layout x) wm_event; E.map (fun x -> `Streams x) streams_event]
+        [
+          E.map (fun x -> `Layout x) wm_event;
+          E.map (fun x -> `Streams x) streams_event;
+        ]
     in
     editor#set_on_destroy (fun () ->
         E.stop ~strong:true notif;

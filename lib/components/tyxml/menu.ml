@@ -2,13 +2,13 @@ module CSS = struct
   (** Required on the root element. *)
   let root = "mdc-menu"
 
-  (** Used to wrap a group of mdc-list-item elements that will represent
-      a selection group. *)
+  (** Used to wrap a group of mdc-list-item elements that will represent a
+      selection group. *)
   let selection_group = BEM.add_element root "selection-group"
 
-  (** Required when using a selection group to indicate which item is
-      selected. Should contain an icon or svg that indicates the selected
-      state of the list item. *)
+  (** Required when using a selection group to indicate which item is selected.
+      Should contain an icon or svg that indicates the selected state of the
+      list item. *)
   let selection_group_icon = BEM.add_element root "selection-group-icon"
 
   (** Used to indicate which element in a selection group is selected. *)
@@ -32,27 +32,21 @@ struct
     let list = list ~role:"menu"
   end
 
-  let menu
-      ?(classes = return [])
-      ?(a = [])
-      ?fixed
-      ?open_
-      ?list_children
-      ?list
-      ?children
-      () =
+  let menu ?(classes = return []) ?(a = []) ?fixed ?open_ ?list_children ?list
+      ?children () =
     let classes = fmap (fun x -> CSS.root :: x) classes in
     let a = a_tabindex (return (-1)) :: a in
     let children =
       match children with
       | Some _ as x -> x
       | None -> (
-        match list with
-        | Some x -> Some (singleton (return x))
-        | None -> (
-          match list_children with
-          | None -> None
-          | Some x -> Some (singleton (return (Item_list.list ~children:x ())))))
+          match list with
+          | Some x -> Some (singleton (return x))
+          | None -> (
+              match list_children with
+              | None -> None
+              | Some x ->
+                  Some (singleton (return (Item_list.list ~children:x ()))) ) )
     in
     Menu_surface_markup.menu_surface ~classes ~a ?fixed ?open_ ?children ()
 end

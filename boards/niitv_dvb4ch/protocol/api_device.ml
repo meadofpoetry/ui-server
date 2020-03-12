@@ -17,10 +17,10 @@ module Event = struct
       match ids with
       | [] ->
           S.changes api.notifs.config
-          |> E.map (fun ({mode; _} : config) -> to_yojson mode)
+          |> E.map (fun ({ mode; _ } : config) -> to_yojson mode)
       | ids ->
           S.changes api.notifs.config
-          |> E.fmap (fun ({mode; _} : config) ->
+          |> E.fmap (fun ({ mode; _ } : config) ->
                  match List.filter (fun (id, _) -> List.mem id ids) mode with
                  | [] -> None
                  | l -> Some (to_yojson l))
@@ -38,9 +38,9 @@ let get_info (api : Protocol.api) force _user _body _env _state =
   match force with
   | Some true -> api.channel Get_devinfo >>=? return_value % info_to_yojson
   | None | Some false -> (
-    match React.S.value api.notifs.devinfo with
-    | None -> return_error Request.Not_responding
-    | Some x -> return_value @@ info_to_yojson x)
+      match React.S.value api.notifs.devinfo with
+      | None -> return_error Request.Not_responding
+      | Some x -> return_value @@ info_to_yojson x )
 
 let get_receivers (api : Protocol.api) _user _body _env _state =
   let to_yojson = Util_json.(List.to_yojson Int.to_yojson) in
@@ -49,8 +49,7 @@ let get_receivers (api : Protocol.api) _user _body _env _state =
   | Some x -> return_value @@ to_yojson x.receivers
 
 let get_mode (api : Protocol.api) (ids : int list) _user _body _env _state =
-  (api.kv)#get
-  >>= fun (config : config) ->
+  api.kv#get >>= fun (config : config) ->
   let value =
     match ids with
     | [] -> config.mode

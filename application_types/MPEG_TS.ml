@@ -111,9 +111,11 @@ module ETR290_error = struct
     | TDT_error
 
   let priority : t -> int = function
-    | Sync_loss | Sync_byte_error | PAT_error | CC_error | PMT_error | PID_error -> 1
-    | Transport_error | CRC_error | PCR_error | PCR_accuracy_error | PTS_error | CAT_error
+    | Sync_loss | Sync_byte_error | PAT_error | CC_error | PMT_error | PID_error
       ->
+        1
+    | Transport_error | CRC_error | PCR_error | PCR_accuracy_error | PTS_error
+    | CAT_error ->
         2
     | NIT_error | SI_repetition_error | Unreferenced_pid | SDT_error | EIT_error
     | RST_error | TDT_error ->
@@ -178,18 +180,11 @@ module SI_PSI = struct
     | `TOT
     | `DIT
     | `SIT
-    | `Unknown of int
-    ]
+    | `Unknown of int ]
 
-  and ao =
-    [ `Actual
-    | `Other
-    ]
+  and ao = [ `Actual | `Other ]
 
-  and ps =
-    [ `Present
-    | `Schedule
-    ]
+  and ps = [ `Present | `Schedule ]
 
   let of_table_id : int -> t = function
     | 0x00 -> `PAT
@@ -227,28 +222,19 @@ module SI_PSI = struct
     | `SIT -> "SIT"
     | `Unknown _ -> "Unknown"
     | `NIT x -> (
-        if short
-        then "NIT"
-        else
-          match x with
-          | `Actual -> "NIT actual"
-          | `Other -> "NIT other")
+        if short then "NIT"
+        else match x with `Actual -> "NIT actual" | `Other -> "NIT other" )
     | `SDT x -> (
-        if short
-        then "SDT"
-        else
-          match x with
-          | `Actual -> "SDT actual"
-          | `Other -> "SDT other")
+        if short then "SDT"
+        else match x with `Actual -> "SDT actual" | `Other -> "SDT other" )
     | `EIT x -> (
-        if short
-        then "EIT"
+        if short then "EIT"
         else
           match x with
           | `Actual, `Present -> "EIT actual present"
           | `Other, `Present -> "EIT other present"
           | `Actual, `Schedule -> "EIT actual schedule"
-          | `Other, `Schedule -> "EIT other schedule")
+          | `Other, `Schedule -> "EIT other schedule" )
 end
 
 module PID = struct
@@ -265,10 +251,7 @@ module PID = struct
 
     and ecm = emm
 
-    and pes =
-      { stream_type : int
-      ; stream_id : int
-      }
+    and pes = { stream_type : int; stream_id : int }
     [@@deriving yojson, eq, show, ord]
 
     let to_string : t -> string = function

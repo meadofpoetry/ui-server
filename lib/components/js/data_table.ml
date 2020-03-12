@@ -51,7 +51,8 @@ end
 module Lwt_js_events = struct
   open Js_of_ocaml_lwt.Lwt_js_events
 
-  let select ?use_capture ?passive t = make_event ?use_capture ?passive Event.select t
+  let select ?use_capture ?passive t =
+    make_event ?use_capture ?passive Event.select t
 
   let selects ?cancel_handler ?use_capture ?passive t =
     seq_loop ?cancel_handler ?use_capture ?passive select t
@@ -82,7 +83,9 @@ let foldi_node_list f acc (nodes : 'a #Dom.nodeList Js.t) =
   let rec aux acc = function
     | i when i = nodes##.length -> acc
     | i ->
-        let acc = f acc i (Js.Opt.get (nodes##item i) (fun () -> assert false)) in
+        let acc =
+          f acc i (Js.Opt.get (nodes##item i) (fun () -> assert false))
+        in
         aux acc (succ i)
   in
   aux acc 0
@@ -106,37 +109,29 @@ class t (elt : Dom_html.element Js.t) () =
     method! init () : unit = super#init ()
 
     method! initial_sync_with_dom () : unit =
-      let ( ^:: ) x l =
-        match x with
-        | None -> l
-        | Some x -> x :: l
-      in
+      let ( ^:: ) x l = match x with None -> l | Some x -> x :: l in
       listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.(
           Option.map
             (fun row -> changes row self#handle_header_row_checkbox_change)
             header_row
-          ^:: [changes table self#handle_row_checkbox_change]
+          ^:: [ changes table self#handle_row_checkbox_change ]
           @ listeners);
       self#layout ();
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
-      if self#are_rows_selectable ()
-      then (
+      if self#are_rows_selectable () then (
         self#register_header_row_checkbox ();
         self#register_row_checkboxes ();
-        self#set_header_row_checkbox_state ());
+        self#set_header_row_checkbox_state () );
       super#layout ()
 
     method! destroy () : unit =
       Option.iter Widget.destroy header_row_checkbox;
       super#destroy ()
 
-    method is_empty : bool =
-      match self#rows with
-      | [] -> true
-      | _ -> false
+    method is_empty : bool = match self#rows with [] -> true | _ -> false
 
     method dense : bool = super#has_class CSS.dense
 
@@ -150,9 +145,7 @@ class t (elt : Dom_html.element Js.t) () =
     (** Proxy to the [tableElement##.tBodies] property. *)
 
     method tbody : Dom_html.tableSectionElement Js.t =
-      match self#tbodies with
-      | [] -> raise Not_found
-      | hd :: _ -> hd
+      match self#tbodies with [] -> raise Not_found | hd :: _ -> hd
     (** First available [tBody] element. *)
 
     method rows : Dom_html.tableRowElement Js.t list =
@@ -164,7 +157,8 @@ class t (elt : Dom_html.element Js.t) () =
       self#tbody##.rows
     (** Proxy to the [tableElement##.rows] property. *)
 
-    method private notify_row_selection_changed ~row ~index ~selected () : unit =
+    method private notify_row_selection_changed ~row ~index ~selected () : unit
+        =
       let detail : Event.selectDetail Js.t =
         object%js
           val row = row
@@ -187,7 +181,8 @@ class t (elt : Dom_html.element Js.t) () =
       super#emit ~should_bubble:true Event.unselectall
     (** Notifies when header row is unchecked. *)
 
-    method private get_row_by_child_element elt : Dom_html.tableRowElement Js.t Js.opt =
+    method private get_row_by_child_element elt
+        : Dom_html.tableRowElement Js.t Js.opt =
       Js.Opt.bind (Element.closest elt Selector.row) (fun row ->
           Dom_html.CoerceTo.tr row)
     (** Returns row element that contains given child element, if any. *)
@@ -196,14 +191,12 @@ class t (elt : Dom_html.element Js.t) () =
       foldi_node_list
         (fun acc _ item ->
           if Element.has_class item CSS.row_selected then acc + 1 else acc)
-        0
-        self#rows_collection
+        0 self#rows_collection
     (** Selected row count. *)
 
     method private handle_header_row_checkbox_change _ _ : unit Lwt.t =
       let is_checked =
-        Option.fold
-          ~none:false
+        Option.fold ~none:false
           ~some:(fun checkbox -> checkbox#checked)
           header_row_checkbox
       in
@@ -213,7 +206,8 @@ class t (elt : Dom_html.element Js.t) () =
           checkbox#toggle ~force:is_checked ();
           self#select_row ~selected:is_checked row)
         self#rows_collection;
-      if is_checked then self#notify_selected_all () else self#notify_unselected_all ();
+      if is_checked then self#notify_selected_all ()
+      else self#notify_unselected_all ();
       Lwt.return_unit
     (** Handles header checkbox change event. *)
 
@@ -223,11 +217,8 @@ class t (elt : Dom_html.element Js.t) () =
       Js.Opt.case row Lwt.return (fun row ->
           let index = row##.rowIndex in
           self#set_header_row_checkbox_state ();
-          self#notify_row_selection_changed
-            ~row
-            ~index
-            ~selected:(row_checkboxes.(index))#checked
-            ();
+          self#notify_row_selection_changed ~row ~index
+            ~selected:row_checkboxes.(index)#checked ();
           Lwt.return_unit)
     (** Handles change event originated from row checkboxes. *)
 
@@ -237,23 +228,21 @@ class t (elt : Dom_html.element Js.t) () =
       | Some checkbox ->
           let selected_rows = self#get_selected_row_count () in
           let total = self#rows_collection##.length in
-          if selected_rows = total
-          then (
+          if selected_rows = total then (
             checkbox#toggle ~force:true ();
-            checkbox#set_indeterminate false)
+            checkbox#set_indeterminate false )
           else (
             checkbox#set_indeterminate (selected_rows <> 0);
-            checkbox#toggle ~force:false ())
+            checkbox#toggle ~force:false () )
     (** Updates header row checkbox state based on number of rows selected. *)
 
     method private select_row ~selected row =
-      if selected
-      then (
+      if selected then (
         Element.add_class row CSS.row_selected;
-        Element.set_attribute row Attr.aria_selected "true")
+        Element.set_attribute row Attr.aria_selected "true" )
       else (
         Element.remove_class row CSS.row_selected;
-        Element.set_attribute row Attr.aria_selected "false")
+        Element.set_attribute row Attr.aria_selected "false" )
 
     method private are_rows_selectable () : bool =
       Option.is_some (Element.query_selector super#root Selector.row_checkbox)
@@ -261,7 +250,9 @@ class t (elt : Dom_html.element Js.t) () =
 
     method private register_header_row_checkbox () : unit =
       Option.iter Widget.destroy header_row_checkbox;
-      let checkbox = Element.query_selector super#root Selector.header_row_checkbox in
+      let checkbox =
+        Element.query_selector super#root Selector.header_row_checkbox
+      in
       header_row_checkbox <- Option.map Checkbox.attach checkbox
     (** Initializes header row checkbox. Destroys previous header row checkbox
         instance if any. *)
@@ -270,16 +261,20 @@ class t (elt : Dom_html.element Js.t) () =
       Array.iter Widget.destroy row_checkboxes;
       let checkboxes =
         Array.map (fun row ->
-            Checkbox.attach @@ Element.query_selector_exn row Selector.row_checkbox)
+            Checkbox.attach
+            @@ Element.query_selector_exn row Selector.row_checkbox)
         @@ Array.of_list self#rows
       in
       row_checkboxes <- checkboxes
-    (** Initializes all row checkboxes. Destroys previous
-        row checkboxes instances if any. This is usually called when
-        row checkboxes are added or removed from the table. *)
+    (** Initializes all row checkboxes. Destroys previous row checkboxes
+        instances if any. This is usually called when row checkboxes are added
+        or removed from the table. *)
   end
 
-let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
+let attach (elt : #Dom_html.element Js.t) : t =
+  new t (elt :> Dom_html.element Js.t) ()
 
 let make ?classes ?a ?dense ?children () =
-  D.data_table ?classes ?a ?dense ?children () |> Tyxml_js.To_dom.of_div |> attach
+  D.data_table ?classes ?a ?dense ?children ()
+  |> Tyxml_js.To_dom.of_div
+  |> attach

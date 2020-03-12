@@ -3,22 +3,13 @@ open Board_dektec_dtm3200_types
 
 let ( >>= ) = Lwt.bind
 
-let step
-    ~(return : Request.error -> unit Lwt.t)
-    ~continue
-    (src : Logs.src)
+let step ~(return : Request.error -> unit Lwt.t) ~continue (src : Logs.src)
     (sender : Cstruct.t -> unit Lwt.t)
-    (rsp_queue : Cstruct.t Request.cmd Lwt_stream.t)
-    (config : config Kv_v.rw) =
-  let ( >>=? ) x f =
-    x
-    >>= function
-    | Error e -> return e
-    | Ok x -> f x
-  in
+    (rsp_queue : Cstruct.t Request.cmd Lwt_stream.t) (config : config Kv_v.rw) =
+  let ( >>=? ) x f = x >>= function Error e -> return e | Ok x -> f x in
   let rec fec_delay () =
     request src sender rsp_queue config (IP_receive FEC_delay)
-    >>=? fun (x : int) -> fec_columns GList.[x]
+    >>=? fun (x : int) -> fec_columns GList.[ x ]
   and fec_columns acc =
     request src sender rsp_queue config (IP_receive FEC_columns)
     >>=? fun (x : int) -> fec_rows GList.(x :: acc)
@@ -69,39 +60,43 @@ let step
     >>=? fun (asi_bitrate : int) ->
     let status =
       match acc with
-      | [ delay_factor
-        ; lock_err_cnt
-        ; jitter_err_cnt
-        ; rate_change_cnt
-        ; pcr_present
-        ; packet_size
-        ; protocol
-        ; status
-        ; tp_per_ip
-        ; lost_before_fec
-        ; lost_after_fec
-        ; bitrate
-        ; jitter_tol
-        ; fec_rows
-        ; fec_cols
-        ; fec_delay ] ->
-          { Board_dektec_dtm3200_types.fec_delay
-          ; fec_cols
-          ; fec_rows
-          ; jitter_tol
-          ; lost_after_fec
-          ; lost_before_fec
-          ; tp_per_ip
-          ; status
-          ; protocol
-          ; packet_size
-          ; bitrate
-          ; pcr_present
-          ; rate_change_cnt
-          ; jitter_err_cnt
-          ; lock_err_cnt
-          ; delay_factor
-          ; asi_bitrate }
+      | [
+       delay_factor;
+       lock_err_cnt;
+       jitter_err_cnt;
+       rate_change_cnt;
+       pcr_present;
+       packet_size;
+       protocol;
+       status;
+       tp_per_ip;
+       lost_before_fec;
+       lost_after_fec;
+       bitrate;
+       jitter_tol;
+       fec_rows;
+       fec_cols;
+       fec_delay;
+      ] ->
+          {
+            Board_dektec_dtm3200_types.fec_delay;
+            fec_cols;
+            fec_rows;
+            jitter_tol;
+            lost_after_fec;
+            lost_before_fec;
+            tp_per_ip;
+            status;
+            protocol;
+            packet_size;
+            bitrate;
+            pcr_present;
+            rate_change_cnt;
+            jitter_err_cnt;
+            lock_err_cnt;
+            delay_factor;
+            asi_bitrate;
+          }
     in
     continue status
   in

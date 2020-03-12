@@ -1,5 +1,5 @@
 (library
-  (name pc_control_types)
-  (libraries yojson netlib)
-  (preprocess (pps ppx_deriving_yojson
-                   ppx_deriving.eq)))
+ (name pc_control_types)
+ (libraries yojson netlib)
+ (preprocess
+  (pps ppx_deriving_yojson ppx_deriving.eq)))

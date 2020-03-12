@@ -1,7 +1,7 @@
 (library
-  (name       text_decoder)
-  (libraries  ctypes
-              ctypes.foreign
-              cstruct)
-  (flags      (:standard -cclib -lc))
-  (preprocess (pps ppx_cstruct)))
+ (name text_decoder)
+ (libraries ctypes ctypes.foreign cstruct)
+ (flags
+  (:standard -cclib -lc))
+ (preprocess
+  (pps ppx_cstruct)))

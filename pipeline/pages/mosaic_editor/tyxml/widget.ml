@@ -21,13 +21,9 @@ let channel_attr_value = string_of_int
 
 let aspect_attr_value ((w, h) : int * int) = Printf.sprintf "%dx%d" w h
 
-let stream_of_domain = function
-  | Wm.Nihil -> None
-  | Chan x -> Some x.stream
+let stream_of_domain = function Wm.Nihil -> None | Chan x -> Some x.stream
 
-let channel_of_domain = function
-  | Wm.Nihil -> None
-  | Chan x -> Some x.channel
+let channel_of_domain = function Wm.Nihil -> None | Chan x -> Some x.channel
 
 module Make
     (Xml : Xml_sigs.NoWrap)
@@ -40,8 +36,10 @@ struct
     | Wm.Nihil -> []
     | Chan x ->
         Html.
-          [ a_user_data "stream" (stream_attr_value x.stream)
-          ; a_user_data "channel" (channel_attr_value x.channel) ]
+          [
+            a_user_data "stream" (stream_attr_value x.stream);
+            a_user_data "channel" (channel_attr_value x.channel);
+          ]
 
   let to_html_attributes ?id (widget : Wm.widget) =
     let aspect =
@@ -55,14 +53,18 @@ struct
       | Some pos ->
           let string_of_float = Printf.sprintf "%g" in
           Html.
-            [ a_user_data "left" (string_of_float pos.x)
-            ; a_user_data "top" (string_of_float pos.y)
-            ; a_user_data "width" (string_of_float pos.w)
-            ; a_user_data "height" (string_of_float pos.h) ]
+            [
+              a_user_data "left" (string_of_float pos.x);
+              a_user_data "top" (string_of_float pos.y);
+              a_user_data "width" (string_of_float pos.w);
+              a_user_data "height" (string_of_float pos.h);
+            ]
     in
     Html.(
-      [ a_user_data "type" (widget_type_to_string widget.type_)
-      ; a_user_data "description" widget.description ]
+      [
+        a_user_data "type" (widget_type_to_string widget.type_);
+        a_user_data "description" widget.description;
+      ]
       @ domain_attrs widget.domain
       @ position
       |> map_cons_option (a_user_data "id") id

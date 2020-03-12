@@ -1,9 +1,5 @@
 (library
-  (name       server)
-  (libraries  kv_v
-              xdg
-              api_cohttp
-              application_types
-              cohttp-lwt-unix
-              lwt_ssl)
-  (preprocess (pps ppx_deriving_yojson ppx_deriving.eq)))
+ (name server)
+ (libraries kv_v xdg api_cohttp application_types cohttp-lwt-unix lwt_ssl)
+ (preprocess
+  (pps ppx_deriving_yojson ppx_deriving.eq)))

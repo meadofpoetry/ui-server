@@ -3,15 +3,17 @@ open Js_of_ocaml
 type node = Dom_html.element Js.t
 
 let selectors =
-  [ "input"
-  ; "select"
-  ; "textarea"
-  ; "a[href]"
-  ; "button"
-  ; "[tabindex]"
-  ; "audio[controls]"
-  ; "video[controls]"
-  ; "[contenteditable]:not([contenteditable=\"false\"])" ]
+  [
+    "input";
+    "select";
+    "textarea";
+    "a[href]";
+    "button";
+    "[tabindex]";
+    "audio[controls]";
+    "video[controls]";
+    "[contenteditable]:not([contenteditable=\"false\"])";
+  ]
 
 let selector = String.concat "," selectors
 
@@ -29,19 +31,16 @@ let is_hidden_input (elt : node) : bool =
   match coerce_to_input elt with
   | None -> false
   | Some i -> (
-    match Js.to_string i##._type with
-    | "hidden" -> true
-    | _ -> false)
+      match Js.to_string i##._type with "hidden" -> true | _ -> false )
 
 let is_radio (elt : node) : bool =
   match coerce_to_input elt with
   | None -> false
   | Some i -> (
-    match Js.to_string i##._type with
-    | "radio" -> true
-    | _ -> false)
+      match Js.to_string i##._type with "radio" -> true | _ -> false )
 
-let get_checked_radio (nodes : Dom_html.element Dom.nodeList Js.t) : node option =
+let get_checked_radio (nodes : Dom_html.element Dom.nodeList Js.t) : node option
+    =
   List.find_opt (fun (elt : node) ->
       let (i : Dom_html.inputElement Js.t) = Js.Unsafe.coerce elt in
       Js.to_bool i##.checked)
@@ -51,17 +50,19 @@ let is_tabbable_radio (elt : node) : bool =
   match coerce_to_input elt with
   | None -> false
   | Some i -> (
-    match Js.to_string i##.name with
-    | "" -> true
-    | name -> (
-        let (owner : Dom_html.document Js.t) = (Js.Unsafe.coerce i)##.ownerDocument in
-        let (selector : string) =
-          Printf.sprintf "input[type=\"radio\"][name=\"%s\"]" name
-        in
-        let radio_set = owner##querySelectorAll (Js.string selector) in
-        match get_checked_radio radio_set with
-        | None -> true
-        | Some x -> Element.equal x elt))
+      match Js.to_string i##.name with
+      | "" -> true
+      | name -> (
+          let (owner : Dom_html.document Js.t) =
+            (Js.Unsafe.coerce i)##.ownerDocument
+          in
+          let (selector : string) =
+            Printf.sprintf "input[type=\"radio\"][name=\"%s\"]" name
+          in
+          let radio_set = owner##querySelectorAll (Js.string selector) in
+          match get_checked_radio radio_set with
+          | None -> true
+          | Some x -> Element.equal x elt ) )
 
 let is_non_tabbable_radio (elt : node) : bool =
   is_radio elt && (not @@ is_tabbable_radio elt)
@@ -96,38 +97,40 @@ let is_node_matching_selector_focusable (elt : node) : bool =
   if disabled || is_hidden_input elt || is_hidden elt then false else true
 
 let is_node_matching_selector_tabbable (elt : node) : bool =
-  if (not @@ is_node_matching_selector_focusable elt)
-     || is_non_tabbable_radio elt
-     || get_tab_index elt < 0
+  if
+    (not @@ is_node_matching_selector_focusable elt)
+    || is_non_tabbable_radio elt
+    || get_tab_index elt < 0
   then false
   else true
 
 let is_tabbable (elt : #Dom_html.element Js.t) : bool =
-  if Element.matches elt selector
-  then is_node_matching_selector_tabbable (Element.coerce elt)
+  if Element.matches elt selector then
+    is_node_matching_selector_tabbable (Element.coerce elt)
   else false
 
 let is_focusable (elt : #Dom_html.element Js.t) : bool =
-  if Element.matches elt focusable_candidate_selector
-  then is_node_matching_selector_focusable (Element.coerce elt)
+  if Element.matches elt focusable_candidate_selector then
+    is_node_matching_selector_focusable (Element.coerce elt)
   else false
 
 let sort_ordered (a : int * int * node as 'a) (b : 'a) : int =
   let doc_order_1, tab_index1, _ = a in
   let doc_order_2, tab_index2, _ = b in
-  if tab_index1 = tab_index2 then doc_order_1 - doc_order_2 else tab_index1 - tab_index2
+  if tab_index1 = tab_index2 then doc_order_1 - doc_order_2
+  else tab_index1 - tab_index2
 
 let get_tabbable ?(include_container = false) (elt : #Dom_html.element Js.t) :
     Dom_html.element Js.t list =
   let rec loop regular ordered i = function
-    | [] -> List.rev regular, List.rev ordered
+    | [] -> (List.rev regular, List.rev ordered)
     | item :: tl -> (
-        if not @@ is_node_matching_selector_tabbable item
-        then loop regular ordered (succ i) tl
+        if not @@ is_node_matching_selector_tabbable item then
+          loop regular ordered (succ i) tl
         else
           match get_tab_index item with
           | 0 -> loop (item :: regular) ordered (succ i) tl
-          | x -> loop regular ((i, x, item) :: ordered) (succ i) tl)
+          | x -> loop regular ((i, x, item) :: ordered) (succ i) tl )
   in
   let cons_if x i l = if x then i :: l else l in
   let candidates =
@@ -136,4 +139,6 @@ let get_tabbable ?(include_container = false) (elt : #Dom_html.element Js.t) :
     @@ elt##querySelectorAll (Js.string selector)
   in
   let regualar, ordered = loop [] [] 0 candidates in
-  List.sort sort_ordered ordered |> List.map (fun (_, _, e) -> e) |> List.append regualar
+  List.sort sort_ordered ordered
+  |> List.map (fun (_, _, e) -> e)
+  |> List.append regualar

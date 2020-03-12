@@ -1,8 +1,8 @@
 (library
-  (name        sender)
-  ;(public_name sender)
-  (modes       native)
-  (synopsis   "sender implementation")
-  (libraries  yojson caqti-lwt cohttp angstrom
-              lwt db process))
- ;; (preprocess (pps (ppx_deriving_yojson)))))
+ (name sender)
+ ;(public_name sender)
+ (modes native)
+ (synopsis "sender implementation")
+ (libraries yojson caqti-lwt cohttp angstrom lwt db process))
+
+;; (preprocess (pps (ppx_deriving_yojson)))))

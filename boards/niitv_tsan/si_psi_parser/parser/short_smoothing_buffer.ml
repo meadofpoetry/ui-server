@@ -1,9 +1,6 @@
 let name = "short_smoothing_buffer_descriptor"
 
-let parse_size size =
-  match size with
-  | 1 -> "1 536"
-  | _ -> "DVB_reserved"
+let parse_size size = match size with 1 -> "1 536" | _ -> "DVB_reserved"
 
 let parse_leak_rate = function
   | 0 -> "DVB_reserved"
@@ -63,8 +60,10 @@ let parse bs off =
       let size = parse_size sb_size in
       let lr = parse_leak_rate sb_lr in
       let nodes =
-        [ Node.make ~parsed:size ~offset:off 2 "sb_size" (Dec (Int sb_size))
-        ; Node.make ~parsed:lr ~offset:(off + off_1) 6 "sb_leak_rate" (Dec (Int sb_lr))
+        [
+          Node.make ~parsed:size ~offset:off 2 "sb_size" (Dec (Int sb_size));
+          Node.make ~parsed:lr ~offset:(off + off_1) 6 "sb_leak_rate"
+            (Dec (Int sb_lr));
         ]
       in
       nodes @ Bytes.parse ~offset:(off + off_2) rest "DVB_reserved"

@@ -48,9 +48,11 @@ class t (elt : Dom_html.element Js.t) =
     method! initial_sync_with_dom () : unit =
       _listeners <-
         Js_of_ocaml_lwt.Lwt_js_events.
-          [ changes (dhcp#input)#input_element (fun _ _ ->
+          [
+            changes dhcp#input#input_element (fun _ _ ->
                 self#handle_dhcp_change ();
-                Lwt.return_unit) ];
+                Lwt.return_unit);
+          ];
       super#initial_sync_with_dom ()
 
     method! destroy () : unit =
@@ -60,32 +62,27 @@ class t (elt : Dom_html.element Js.t) =
       super#destroy ()
 
     method set_value
-        ({address; routes; meth; _} as v : Pc_control_types.Network_config.ipv4_conf) =
-      (dhcp#input)#toggle
-        ~force:
-          (match meth with
-          | Auto -> true
-          | Manual -> false)
+        ({ address; routes; meth; _ } as v :
+          Pc_control_types.Network_config.ipv4_conf) =
+      dhcp#input#toggle
+        ~force:(match meth with Auto -> true | Manual -> false)
         ();
       ip#set_value @@ fst address;
       mask#set_value @@ snd address;
-      (match routes.gateway with
+      ( match routes.gateway with
       | None -> gateway#clear ()
-      | Some x -> gateway#set_value x);
+      | Some x -> gateway#set_value x );
       self#handle_dhcp_change ();
       _value <- Some v
 
     method value : Pc_control_types.Network_config.ipv4_conf option =
-      match ip#value, mask#value, (dhcp#input)#checked with
+      match (ip#value, mask#value, dhcp#input#checked) with
       | _, _, true ->
-          let get_or x = function
-            | None -> x
-            | Some v -> v
-          in
+          let get_or x = function None -> x | Some v -> v in
           let address =
             match _value with
             | Some v -> v.address
-            | None -> get_or Ipaddr.V4.any ip#value, get_or 24l mask#value
+            | None -> (get_or Ipaddr.V4.any ip#value, get_or 24l mask#value)
           in
           let gateway =
             match _value with
@@ -93,25 +90,31 @@ class t (elt : Dom_html.element Js.t) =
             | None -> gateway#value
           in
           Some
-            { Pc_control_types.Network_config.meth = Auto
-            ; address
-            ; routes = {gateway; static = []}
-            ; dns = [] }
+            {
+              Pc_control_types.Network_config.meth = Auto;
+              address;
+              routes = { gateway; static = [] };
+              dns = [];
+            }
       | Some ip, Some mask, false ->
           Some
-            { Pc_control_types.Network_config.meth = Manual
-            ; address = ip, mask
-            ; routes = {gateway = gateway#value; static = []}
-            ; dns = [] }
+            {
+              Pc_control_types.Network_config.meth = Manual;
+              address = (ip, mask);
+              routes = { gateway = gateway#value; static = [] };
+              dns = [];
+            }
       | _ -> None
 
     method private handle_dhcp_change () =
-      let disabled = (dhcp#input)#checked in
+      let disabled = dhcp#input#checked in
       ip#set_disabled disabled;
       mask#set_disabled disabled;
       gateway#set_disabled disabled
   end
 
 let make (init : Pc_control_types.Network_config.ipv4_conf) : t =
-  let (elt : Dom_html.element Js.t) = Tyxml_js.To_dom.of_element @@ D.create init in
+  let (elt : Dom_html.element Js.t) =
+    Tyxml_js.To_dom.of_element @@ D.create init
+  in
   new t elt

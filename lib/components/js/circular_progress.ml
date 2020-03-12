@@ -46,13 +46,12 @@ class t (elt : #Dom_html.element Js.t) () =
         | None -> _max
         | Some x -> x
       in
-      if min' >= self#max
-      then (
+      if min' >= self#max then (
         self#set_max max';
-        self#set_min min')
+        self#set_min min' )
       else (
         self#set_min min';
-        self#set_max max');
+        self#set_max max' );
       let val' =
         match get_float_attribute elt Attr.aria_valuenow with
         | None -> _value
@@ -64,22 +63,22 @@ class t (elt : #Dom_html.element Js.t) () =
     method min : float = _min
 
     method set_min (x : float) : unit =
-      if x > self#max
-      then raise (Invalid_argument (CSS.root ^ ":min cannot be greater than max"))
+      if x > self#max then
+        raise (Invalid_argument (CSS.root ^ ":min cannot be greater than max"))
       else (
         _min <- x;
         self#set_value_ ~force:true self#value;
-        super#set_attribute Attr.aria_valuemin (string_of_float x))
+        super#set_attribute Attr.aria_valuemin (string_of_float x) )
 
     method max : float = _max
 
     method set_max (x : float) : unit =
-      if x < self#min
-      then raise (Invalid_argument (CSS.root ^ ":max cannot be less than min"))
+      if x < self#min then
+        raise (Invalid_argument (CSS.root ^ ":max cannot be less than min"))
       else (
         _max <- x;
         self#set_value_ ~force:true self#value;
-        super#set_attribute Attr.aria_valuemax (string_of_float x))
+        super#set_attribute Attr.aria_valuemax (string_of_float x) )
 
     method value : float = _value
 
@@ -87,10 +86,9 @@ class t (elt : #Dom_html.element Js.t) () =
 
     method set_indeterminate (x : bool) : unit =
       super#toggle_class ~force:x CSS.indeterminate;
-      if x
-      then (
+      if x then (
         (Js.Unsafe.coerce circle##.style)##.strokeDashoffset := Js.string "";
-        (Js.Unsafe.coerce circle##.style)##.strokeDasharray := Js.string "")
+        (Js.Unsafe.coerce circle##.style)##.strokeDasharray := Js.string "" )
       else self#set_value_ ~force:true self#value
 
     method indeterminate : bool = super#has_class CSS.indeterminate
@@ -100,20 +98,20 @@ class t (elt : #Dom_html.element Js.t) () =
     method close () : unit = super#root##.style##.display := Js.string "none"
 
     method private set_value_ ?(force = false) (v : float) : unit =
-      let min, max, prev = self#min, self#max, self#value in
+      let min, max, prev = (self#min, self#max, self#value) in
       let v = clamp ~min ~max v in
-      if force || v <> prev
-      then (
+      if force || v <> prev then (
         _value <- v;
         super#set_attribute Attr.aria_valuenow (string_of_float v);
-        self#update_ui_for_value ())
+        self#update_ui_for_value () )
 
     method private update_ui_for_value () : unit =
-      let min, max, value = self#min, self#max, self#value in
+      let min, max, value = (self#min, self#max, self#value) in
       let rel_val = (value -. min) /. (max -. min) *. 100. in
       let circumference = 2. *. Float.pi *. ((sz /. 2.) -. 5.) in
       let dash_offset =
-        Float.(round ((100. -. rel_val) /. 100. *. circumference *. 1000.) /. 1000.)
+        Float.(
+          round ((100. -. rel_val) /. 100. *. circumference *. 1000.) /. 1000.)
       in
       let dash_array = Float.(round (circumference *. 1000.) /. 1000.) in
       let dash_offset' = Js.string (Printf.sprintf "%gpx" dash_offset) in
@@ -122,9 +120,11 @@ class t (elt : #Dom_html.element Js.t) () =
       (Js.Unsafe.coerce circle##.style)##.strokeDasharray := dash_array'
   end
 
-let attach (elt : #Dom_html.element Js.t) : t = new t (elt :> Dom_html.element Js.t) ()
+let attach (elt : #Dom_html.element Js.t) : t =
+  new t (elt :> Dom_html.element Js.t) ()
 
 let make ?classes ?a ?min ?max ?value ?indeterminate ?thickness ?size () : t =
-  D.circular_progress ?classes ?a ?min ?max ?value ?indeterminate ?thickness ?size ()
+  D.circular_progress ?classes ?a ?min ?max ?value ?indeterminate ?thickness
+    ?size ()
   |> Tyxml_js.To_dom.of_element
   |> attach

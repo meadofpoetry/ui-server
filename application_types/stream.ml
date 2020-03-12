@@ -1,9 +1,6 @@
 open Topology
 
-let ( >>= ) m f =
-  match m with
-  | None -> None
-  | Some v -> f v
+let ( >>= ) m f = match m with None -> None | Some v -> f v
 
 (** Main stream ID *)
 module ID : sig
@@ -60,44 +57,25 @@ end
 module Source = struct
   let round_freq (x : int64) =
     let ( mod ), ( / ), ( = ) = Int64.(rem, div, equal) in
-    if x mod 1_000_000_000L = 0L
-    then x / 1_000_000_000L, "ГГц"
-    else if x mod 1_000_000L = 0L
-    then x / 1_000_000L, "МГц"
-    else if x mod 1_000L = 0L
-    then x / 1_000L, "кГц"
-    else x, "Гц"
+    if x mod 1_000_000_000L = 0L then (x / 1_000_000_000L, "ГГц")
+    else if x mod 1_000_000L = 0L then (x / 1_000_000L, "МГц")
+    else if x mod 1_000L = 0L then (x / 1_000L, "кГц")
+    else (x, "Гц")
 
-  type dvb_t2 =
-    { freq : int64
-    ; plp : int
-    ; bw : float
-    }
+  type dvb_t2 = { freq : int64; plp : int; bw : float }
   [@@deriving yojson, show, eq, ord]
   (** DVB-T2 source description *)
 
-  type dvb_t =
-    { freq : int64
-    ; bw : float
-    }
-  [@@deriving yojson, show, eq, ord]
+  type dvb_t = { freq : int64; bw : float } [@@deriving yojson, show, eq, ord]
   (** DVB-T source description *)
 
   type dvb_c = dvb_t [@@deriving yojson, show, eq, ord]
   (** DVB-C source description *)
 
-  type t2mi =
-    { stream_id : int
-    ; plp : int
-    }
-  [@@deriving yojson, show, eq, ord]
+  type t2mi = { stream_id : int; plp : int } [@@deriving yojson, show, eq, ord]
   (** T2-MI source description *)
 
-  type ipv4 =
-    { scheme : string
-    ; addr : Netlib.Ipaddr.V4.t
-    ; port : int
-    }
+  type ipv4 = { scheme : string; addr : Netlib.Ipaddr.V4.t; port : int }
   [@@deriving yojson, show, eq, ord]
   (** IP v4 source description *)
 
@@ -133,7 +111,8 @@ module Source = struct
     Printf.sprintf "T2-MI PLP. Stream ID %d, PLP %d" x.stream_id x.plp
 
   let ipv4_to_string ({ scheme; port; addr } : ipv4) =
-    Uri.to_string @@ Uri.make ~scheme ~host:(Netlib.Ipaddr.V4.to_string addr) ~port ()
+    Uri.to_string
+    @@ Uri.make ~scheme ~host:(Netlib.Ipaddr.V4.to_string addr) ~port ()
 
   let to_string = function
     | DVB_T2 x -> dvb_t2_to_string x
@@ -146,25 +125,19 @@ end
 
 (** Multi TS ID *)
 module Multi_TS_ID : sig
-  (** Pure multi TS ID format.
-      Pure format is usually used in exchange protocol messages because
-      it is easier to parse then the raw format.
+  (** Pure multi TS ID format. Pure format is usually used in exchange protocol
+      messages because it is easier to parse then the raw format.
 
-      | [31:28] |   [27:8]   |  [7:0]   |
-      |---------+------------+----------|
-      |  rfu    |  num[19:0] | src[7:0] |
+      | [31:28] | [27:8] | [7:0] | |---------+------------+----------| | rfu |
+      num[19:0] | src[7:0] |
 
-      Raw multi TS ID format.
-      Raw format is used when ID is transmitted in TS stream.
-      Constants in this formats guarantee that inner bytes will never
+      Raw multi TS ID format. Raw format is used when ID is transmitted in TS
+      stream. Constants in this formats guarantee that inner bytes will never
       take the value 0x47 (sync byte in MPEG-TS).
 
-
-      | [31] |   [30:23]  | [22] |  [21:10]  | [9] |   [8:1]   | [0] |
-      |------+------------+------+-----------+-----+-----------+-----|
-      |  1   | num[19:12] |  0   | num[11:0] |  0  |  src[7:0] |  0  |
-
-   *)
+      | [31] | [30:23] | [22] | [21:10] | [9] | [8:1] | [0] |
+      |------+------------+------+-----------+-----+-----------+-----| | 1 |
+      num[19:12] | 0 | num[11:0] | 0 | src[7:0] | 0 | *)
 
   type t
 
@@ -198,16 +171,9 @@ module Multi_TS_ID : sig
 end = struct
   [@@@ocaml.warning "-32"]
 
-  type t =
-    | Parsed of parsed
-    | Raw of int32
-    | Pure of int32
+  type t = Parsed of parsed | Raw of int32 | Pure of int32
 
-  and parsed =
-    { source_id : int
-    ; stream_id : int
-    }
-  [@@deriving eq, ord]
+  and parsed = { source_id : int; stream_id : int } [@@deriving eq, ord]
 
   [@@@ocaml.warning "+32"]
 
@@ -253,7 +219,7 @@ end = struct
     | Pure i -> parse_pure i
 
   let compare (x : t) (y : t) =
-    match x, y with
+    match (x, y) with
     | Raw x, Raw y -> Int32.compare x y
     | Pure x, Pure y -> Int32.compare x y
     | x, y -> compare_parsed (parse x) (parse y)
@@ -277,7 +243,8 @@ end = struct
   let pp ppf t =
     (* Format.pp_print_string ppf (Int32.to_string @@ to_int32_pure t) *)
     let p = parse t in
-    Format.fprintf ppf "{ source_id = %d; stream_id = %d }" p.source_id p.stream_id
+    Format.fprintf ppf "{ source_id = %d; stream_id = %d }" p.source_id
+      p.stream_id
 
   let show t = Format.asprintf "%a" pp t
 
@@ -293,66 +260,49 @@ end = struct
     | Ok v -> Ok (of_int32_pure v)
 end
 
-type stream_type =
-  | TS
-  | T2MI
+type stream_type = TS | T2MI [@@deriving yojson, eq, show, ord]
+
+type tsoip_id = { scheme : string; addr : Netlib.Ipaddr.V4.t; port : int }
 [@@deriving yojson, eq, show, ord]
 
-type tsoip_id =
-  { scheme : string
-  ; addr : Netlib.Ipaddr.V4.t
-  ; port : int
-  }
-[@@deriving yojson, eq, show, ord]
-
-type container_id =
-  | TS_raw
-  | TS_multi of Multi_TS_ID.t
-  | TSoIP of tsoip_id
+type container_id = TS_raw | TS_multi of Multi_TS_ID.t | TSoIP of tsoip_id
 [@@deriving yojson, eq, show, ord]
 
 let tsoip_id_of_uri (x : Netlib.Uri.t) : tsoip_id option =
-  Netlib.Uri.host_v4 x
-  >>= fun addr ->
-  Netlib.Uri.port x
-  >>= fun port -> Netlib.Uri.scheme x >>= fun scheme -> Some { scheme; addr; port }
+  Netlib.Uri.host_v4 x >>= fun addr ->
+  Netlib.Uri.port x >>= fun port ->
+  Netlib.Uri.scheme x >>= fun scheme -> Some { scheme; addr; port }
 
 module Raw = struct
-  type t =
-    { source : source
-    ; typ : stream_type
-    ; id : container_id
-    }
+  type t = { source : source; typ : stream_type; id : container_id }
 
-  and source_node =
-    | Port of int
-    | Board
-    | Stream of container_id
+  and source_node = Port of int | Board | Stream of container_id
 
-  and source =
-    { node : source_node
-    ; info : Source.t
-    }
+  and source = { node : source_node; info : Source.t }
   [@@deriving yojson, eq, show]
 end
 
-type t =
-  { (* stream source node and description *)
-    source : source (* unique stream ID across the system *)
-  ; id : ID.t (* stream type *)
-  ; typ : stream_type (* original container id *)
-  ; orig_id : container_id
-  }
+type t = {
+  (* stream source node and description *)
+  source : source;
+  (* unique stream ID across the system *)
+  id : ID.t;
+  (* stream type *)
+  typ : stream_type;
+  (* original container id *)
+  orig_id : container_id;
+}
 
 and source_node =
   | Entry of topo_entry (* stream from input or generated by a board*)
   | Stream of t
 
 (* stream extracted from another stream *)
-and source =
-  { node : source_node (* source node *)
-  ; info : Source.t (* details about stream source *)
-  }
+and source = {
+  node : source_node;
+  (* source node *)
+  info : Source.t; (* details about stream source *)
+}
 [@@deriving yojson, eq, show, ord]
 
 let make_id (src : source) : ID.t =
@@ -374,13 +324,9 @@ let make_id (src : source) : ID.t =
   ID.make (node ^ "/" ^ info)
 
 let to_multi_id (t : t) : Multi_TS_ID.t =
-  match t.orig_id with
-  | TS_multi x -> x
-  | _ -> failwith "not a multi TS"
+  match t.orig_id with TS_multi x -> x | _ -> failwith "not a multi TS"
 
-let typ_to_string = function
-  | TS -> "ts"
-  | T2MI -> "t2mi"
+let typ_to_string = function TS -> "ts" | T2MI -> "t2mi"
 
 let typ_of_string = function
   | "ts" -> TS
@@ -394,9 +340,7 @@ let compare l r = if equal l r then 0 else compare l r
 let find_by_multi_id (id : Multi_TS_ID.t) (streams : t list) =
   List.find_opt
     (fun (s : t) ->
-      match s.orig_id with
-      | TS_multi x -> Multi_TS_ID.equal x id
-      | _ -> false)
+      match s.orig_id with TS_multi x -> Multi_TS_ID.equal x id | _ -> false)
     streams
 
 let find_by_id (id : ID.t) (streams : t list) =
@@ -413,42 +357,35 @@ let to_topo_port (ports : topo_port list) (t : t) : topo_port option =
     | [] -> None
     | hd :: tl -> (
         match hd.child with
-        | Input x -> if equal_topo_input x input then Some hd else get_port input tl
+        | Input x ->
+            if equal_topo_input x input then Some hd else get_port input tl
         | Board x -> (
             match get_port input x.ports with
             | Some _ -> Some hd
-            | None -> get_port input tl))
+            | None -> get_port input tl ) )
   in
   get_input t >>= fun input -> get_port input ports
 
 module Table = struct
-  type source_state =
-    [ `Forbidden
-    | `Limited of int
-    | `Unlimited
-    ]
+  type source_state = [ `Forbidden | `Limited of int | `Unlimited ]
   [@@deriving yojson, eq]
 
   type set_error =
     [ `Not_in_range
     | `Limit_exceeded of int * int
     | `Forbidden
-    | `Internal_error of string
-    ]
+    | `Internal_error of string ]
   [@@deriving yojson, eq]
 
-  type stream =
-    { url : Netlib.Uri.t option (* if None - stream is not selected *)
-    ; present : bool
-    ; stream : t
-    }
+  type stream = {
+    url : Netlib.Uri.t option;
+    (* if None - stream is not selected *)
+    present : bool;
+    stream : t;
+  }
   [@@deriving yojson, eq, ord]
 
-  type setting =
-    { url : Netlib.Uri.t
-    ; stream : t
-    }
-  [@@deriving yojson, eq, ord]
+  type setting = { url : Netlib.Uri.t; stream : t } [@@deriving yojson, eq, ord]
 
   let set_error_to_string : set_error -> string = function
     | `Not_in_range -> "Not in range"
@@ -459,12 +396,7 @@ module Table = struct
 end
 
 module Log_message = struct
-  type level =
-    | Info
-    | Warn
-    | Err
-    | Fatal
-  [@@deriving eq, enum, ord]
+  type level = Info | Warn | Err | Fatal [@@deriving eq, enum, ord]
 
   let level_to_string = function
     | Info -> "info"
@@ -478,43 +410,33 @@ module Log_message = struct
     | `Int i -> (
         match level_of_enum i with
         | None -> Error "level_of_yojson: bad level"
-        | Some v -> Ok v)
+        | Some v -> Ok v )
     | _ -> Error "level_of_yojson: bad level"
 
-  type node =
-    | Board of int
-    | Cpu of string
-  [@@deriving eq, yojson]
+  type node = Board of int | Cpu of string [@@deriving eq, yojson]
 
-  type t =
-    { time : Time.t
-    ; level : level
-    ; message : string
-    ; info : string
-    ; node : node option
-    ; input : topo_input option
-    ; stream : ID.t option
-    ; service : string option
-    ; pid : pid option
-    }
+  type t = {
+    time : Time.t;
+    level : level;
+    message : string;
+    info : string;
+    node : node option;
+    input : topo_input option;
+    stream : ID.t option;
+    service : string option;
+    pid : pid option;
+  }
 
-  and pid =
-    { typ : string option
-    ; id : int
-    }
-  [@@deriving eq, yojson, make]
+  and pid = { typ : string option; id : int } [@@deriving eq, yojson, make]
 
   type source = [ `All | `Id of ID.t list ] -> t list React.event
 end
 
-type marker =
-  [ `Input of Topology.input * int
-  | `Board of int
-  ]
+type marker = [ `Input of Topology.input * int | `Board of int ]
 [@@deriving yojson, eq]
 
 let marker_compare (l : marker) (r : marker) =
-  match l, r with
+  match (l, r) with
   | `Input (li, lid), `Input (ri, rid) ->
       let c = Topology.compare_input li ri in
       if c <> 0 then c else Stdlib.compare lid rid
@@ -536,6 +458,7 @@ and board_num = int [@@deriving yojson, eq]
 let set_error_to_string : Table.set_error -> string = function
   | `Not_in_range -> "Not in range"
   | `Limit_exceeded (exp, got) ->
-      Printf.sprintf "Limit exceeded: got %d streams, but only %d is available" got exp
+      Printf.sprintf "Limit exceeded: got %d streams, but only %d is available"
+        got exp
   | `Forbidden -> "Forbidden"
   | `Internal_error e -> Printf.sprintf "Internal error: %s" e

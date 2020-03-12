@@ -28,12 +28,12 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
       super#init ()
 
     method! initial_sync_with_dom () : unit =
-      (match on_click with
+      ( match on_click with
       | None -> ()
       | Some f ->
           listeners <-
             Js_of_ocaml_lwt.Lwt_js_events.(
-              [clicks super#root (f (self :> t))] @ listeners));
+              [ clicks super#root (f (self :> t)) ] @ listeners) );
       super#initial_sync_with_dom ()
 
     method! layout () : unit =
@@ -69,8 +69,7 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
         Lwt.on_termination t (fun () -> self#set_loading false)
 
     method set_loading (x : bool) : unit =
-      if x
-      then (
+      if x then (
         super#add_class CSS.loading;
         self#set_disabled true;
         let loader_container =
@@ -80,23 +79,25 @@ class t ?(ripple = true) ?on_click ?loader (elt : Dom_html.element Js.t) () =
               let loader =
                 match loader with
                 | None ->
-                    let progress = Circular_progress.D.circular_progress ~size:25 () in
+                    let progress =
+                      Circular_progress.D.circular_progress ~size:25 ()
+                    in
                     loader <- Some progress;
                     progress
                 | Some x -> x
               in
               let container =
                 Tyxml_js.To_dom.of_element
-                @@ D.button_loader_container ~children:[loader] ()
+                @@ D.button_loader_container ~children:[ loader ] ()
               in
               loader_container <- Some container;
               container
         in
-        Element.append_child super#root loader_container)
+        Element.append_child super#root loader_container )
       else (
         super#remove_class CSS.loading;
         self#set_disabled false;
-        Option.iter (Element.remove_child_safe super#root) loader_container)
+        Option.iter (Element.remove_child_safe super#root) loader_container )
 
     method private create_ripple () : Ripple.t = Ripple.attach super#root
   end
@@ -106,31 +107,20 @@ let attach ?ripple ?loader ?on_click (elt : #Dom_html.element Js.t) : t =
   Js.Opt.case
     (Dom_html.CoerceTo.button elt)
     (fun () ->
-      Js.Opt.case
-        (Dom_html.CoerceTo.a elt)
+      Js.Opt.case (Dom_html.CoerceTo.a elt)
         (fun () ->
           failwith (CSS.root ^ ": root element should have `a` or `button` tag"))
         make)
     make
 
-let make
-    ?classes
-    ?a
-    ?ripple
-    ?loader
-    ?on_click
-    ?button_type
-    ?appearance
-    ?dense
-    ?icon
-    ?label
-    () =
+let make ?classes ?a ?ripple ?loader ?on_click ?button_type ?appearance ?dense
+    ?icon ?label () =
   D.button ?classes ?a ?button_type ?appearance ?dense ?icon ?label ()
   |> Tyxml_js.To_dom.of_button
   |> attach ?ripple ?loader ?on_click
 
-let make_a ?classes ?a ?ripple ?loader ?on_click ?appearance ?href ?dense ?icon ?label ()
-    =
+let make_a ?classes ?a ?ripple ?loader ?on_click ?appearance ?href ?dense ?icon
+    ?label () =
   D.button_a ?classes ?a ?appearance ?href ?dense ?icon ?label ()
   |> Tyxml_js.To_dom.of_a
   |> attach ?ripple ?loader ?on_click
