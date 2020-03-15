@@ -245,11 +245,17 @@ let create (src : Logs.src) (sender : Cstruct.t -> unit Lwt.t)
           parsed
   in
   let channel req = send src state push_req_queue sender req in
+  let set_probe : ?step:React.step -> Fsm.probe -> unit =
+   fun ?step -> function
+    | `Structure x -> set_structure ?step x
+    | `Bitrate x -> set_bitrate ?step x
+    | `T2MI_info x -> set_t2mi_info ?step x
+    | `Deverr x -> set_deverr ?step x
+  in
   let loop =
     Fsm.start src sender pending req_queue rsp_event evt_queue kv
       t2mi_mode_listener set_state
       (fun ?step x -> set_devinfo ?step @@ Some x)
-      set_status set_errors set_raw_streams set_structure set_bitrate
-      set_t2mi_info set_deverr
+      set_status set_errors set_raw_streams set_probe
   in
   Lwt.return_ok { notifs; kv; channel; loop; push_data; bitrate_queue }

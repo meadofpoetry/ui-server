@@ -263,151 +263,11 @@ let get_t2mi_info request (old : Parser.Status.versions option)
         in
         Lwt.return_ok (`T2MI_info [ (stream, x) ] :: probes))
 
-let start (src : Logs.src) (sender : sender) (pending : pending ref)
-    (req_queue : api_msg Queue_lwt.t) (rsp_event : Request.rsp ts React.event)
-    (evt_queue : Request.evt ts Lwt_stream.t) (kv : config Kv_v.rw)
-    (t2mi_mode_listener : t2mi_mode Lwt_stream.t)
-    (set_state : Topology.state set) (set_devinfo : devinfo set)
-    (set_status : Parser.Status.t set)
-    (set_errors : (Stream.Multi_TS_ID.t * Error.t list) list set)
-    (set_streams : Stream.Raw.t list set)
-    (set_structure : (Stream.Multi_TS_ID.t * Structure.t) list set)
-    (set_bitrate : (Stream.Multi_TS_ID.t * int Bitrate.t) list set)
-    (set_t2mi_info : (Stream.Multi_TS_ID.t * (int * T2mi_info.t) list) list set)
-    (set_deverr : Deverr.t list set) =
-  let (module Logs : Logs.LOG) = Logs.src_log src in
-  let clear_pending () =
-    List.iter (Lwt.cancel % snd) !pending;
-    pending := []
-  in
-  let reset_notifs () =
-    let step = React.Step.create () in
-    set_state ~step `No_response;
-    set_streams ~step [];
-    set_structure ~step [];
-    set_t2mi_info ~step [];
-    React.Step.execute step
-  in
-  let evt_queue =
-    Lwt_stream.filter_map
-      (fun { data; timestamp } ->
-        let ( >>= ) x f = match x with Ok x -> f x | Error _ as e -> e in
-        let res =
-          match (data : Request.evt) with
-          | { tag = `Status; body } ->
-              Parser.Status.parse ~timestamp body >>= fun x -> Ok (`Status x)
-          | { tag = `Streams; body } ->
-              Parser.parse_streams body >>= fun x -> Ok (`Streams x)
-          | { tag = `Ts_errors; body } ->
-              Parser.TS_error.parse ~timestamp body >>= fun x ->
-              Ok (`Ts_errors x)
-          | { tag = `T2mi_errors; body } ->
-              Parser.T2MI_error.parse ~timestamp body >>= fun x ->
-              Ok (`T2mi_errors x)
-          | { tag = `End_of_errors; _ } -> Ok `End_of_errors
-          | { tag = `End_of_transmission; _ } -> Ok `End_of_transmission
-        in
-        match res with
-        | Ok x -> Some x
-        | Error e ->
-            Logs.err (fun m ->
-                m "Error parsing '%s' event: %s"
-                  (Request.event_tag_to_string data.tag)
-                @@ Request.error_to_string e);
-            None)
-      evt_queue
-  in
-  let rec restart () =
-    Logs.info (fun m -> m "Restarting...");
-    clear_pending ();
-    reset_notifs ();
-    Queue_lwt.clear req_queue >>= fun () ->
-    Lwt_stream.junk_old evt_queue >>= fun () ->
-    Lwt_stream.junk_old t2mi_mode_listener >>= fun () ->
-    Lwt_unix.sleep cooldown_timeout >>= detect
-  and detect () =
-    Logs.info (fun m -> m "Start of connection establishment...");
-    set_state `Detect;
-    let rec loop () =
-      Lwt.pick
-        [
-          (Lwt_stream.next evt_queue >>= fun x -> Lwt.return @@ `E x);
-          (Util_react.E.next rsp_event >>= fun x -> Lwt.return @@ `R x);
-        ]
-      >>= function
-      | `E (`Status _) ->
-          Logs.debug (fun m ->
-              m "The device was already initialized, got status event");
-          request src rsp_event evt_queue sender Request.Get_devinfo
-      | `R { data = `Simple { tag = `Devinfo; body }; _ } -> (
-          match Parser.parse_devinfo body with
-          | Error _ as e -> Lwt.return e
-          | Ok info as x ->
-              Logs.debug (fun m ->
-                  m
-                    "The device is waiting, for initialization, got device \
-                     info event: %a"
-                    pp_devinfo info);
-              Lwt.return x )
-      | _ -> loop ()
-    in
-    loop () >>= function
-    | Error e ->
-        Logs.err (fun m ->
-            m "Got error during detect step: %s" @@ Request.error_to_string e);
-        restart ()
-    | Ok x ->
-        set_state `Init;
-        set_devinfo x;
-        Logs.info (fun m ->
-            m "Connection established, device initialization started...");
-        Lwt_stream.junk_old evt_queue >>= initialize
-  and initialize () =
-    kv#get
-    >>= fun { input_source; t2mi_source; input; t2mi_mode; jitter_mode } ->
-    sender.send Request.(Set_src_id { input_source; t2mi_source }) >>= fun () ->
-    let t2mi_mode =
-      match t2mi_mode.stream with
-      | ID _id -> t2mi_mode
-      | Full _ -> { t2mi_mode with enabled = false }
-    in
-    sender.send Request.(Set_mode { input; t2mi_mode }) >>= fun () ->
-    sender.send Request.(Set_jitter_mode jitter_mode) >>= fun () ->
-    (* Wait for status - make sure that the desired mode is set. *)
-    let rec wait_status () =
-      Lwt_stream.next evt_queue >>= function
-      | `Status status ->
-          if
-            equal_t2mi_mode status.t2mi_mode t2mi_mode
-            && equal_jitter_mode status.jitter_mode jitter_mode
-          then Lwt.return_ok ()
-          else wait_status ()
-      | _ -> wait_status ()
-    in
-    Lwt.pick [ wait_status (); sleep status_timeout ] >>= function
-    | Ok () -> idle ()
-    | Error e ->
-        Logs.err (fun m ->
-            m "Initialization failed: %s" @@ Request.error_to_string e);
-        restart ()
-  and idle () =
-    set_state `Fine;
-    Logs.info (fun m -> m "Initialization done!");
-    Lwt.pick [ status_loop (); t2mi_loop (); client_loop () ] >>= restart
-  and t2mi_loop () : unit Lwt.t =
-    Lwt_stream.last_new t2mi_mode_listener >>= fun t2mi_mode ->
-    kv#get >>= fun { input; _ } ->
-    let req = Request.Set_mode { input; t2mi_mode } in
-    sender.send req >>= t2mi_loop
-  (* request src rsp_event evt_queue sender req
-   * >>= function
-   * | Ok () -> t2mi_loop ()
-   * | Error e ->
-   *   Logs.err (fun m ->
-   *       m "Error during internal T2-MI mode setup: %s"
-   *       @@ Request.error_to_string e);
-   *   Lwt.return () *)
-  and client_loop () : unit Lwt.t =
+(*
+ * Loop that handles client requests.
+ *)
+let client_loop ~req_queue ~evt_queue ~rsp_event ~pending () : unit Lwt.t =
+  let rec aux () =
     Lwt.pick
       [
         (Queue_lwt.next req_queue >>= fun x -> Lwt.return (`C x));
@@ -416,12 +276,47 @@ let start (src : Logs.src) (sender : sender) (pending : pending ref)
     >>= function
     | `R ->
         pending := List.filter (Lwt.is_sleeping % snd) !pending;
-        Queue_lwt.check_condition req_queue >>= client_loop
+        Queue_lwt.check_condition req_queue >>= aux
     | `C (id, send) ->
         let r = send rsp_event evt_queue in
         pending := (id, r) :: !pending;
-        client_loop ()
-  and status_loop
+        aux ()
+  in
+  aux ()
+
+(*
+ * Loop for changing T2-MI settings.
+ * NOTE: This is actually a hack.
+ * This loop is needed because concept of stream ID is different
+ * in this app and in the hardware board.
+ * Board stream ID is quite simple 32 bit value and cannot be used
+ * as an unique identifier for stream within the application.
+ * App stream ID is presented as UUID.
+ * When the user changes stream UUID which is used for T2-MI analysis,
+ * we must first check if there is a corresponding 32-bit ID, and if no,
+ * we must disable T2-MI analysis to prevent unexpected
+ * monitoring results.
+ *)
+let t2mi_loop ~t2mi_mode_listener ~send ~kv () : unit Lwt.t =
+  let rec aux () =
+    Lwt_stream.last_new t2mi_mode_listener >>= fun t2mi_mode ->
+    kv#get >>= fun { input; _ } ->
+    let req = Request.Set_mode { input; t2mi_mode } in
+    send req >>= aux
+  in
+  aux ()
+
+(*
+ * Loop which waits for status and corresponding board events.
+ * When a status is received, this loop decides which probes
+ * should be requested based on status values.
+ *)
+let rec status_loop ~src ~kv ~sender ~rsp_event ~evt_queue
+    ~(set_status : Parser.Status.t set)
+    ~(set_errors : (Stream.Multi_TS_ID.t * Error.t list) list set)
+    ~(set_streams : Stream.Raw.t list set)
+    ~(set_probe : ?step:React.step -> probe -> unit) () =
+  let rec aux
       ?(timer = Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm)
       ?(prev : Parser.Status.versions option) () : unit Lwt.t =
     let rec wait_status () =
@@ -436,7 +331,7 @@ let start (src : Logs.src) (sender : sender) (pending : pending ref)
         in
         wait_streams { prev; status; streams = []; errors = [] } >>= function
         | Error _ -> Lwt.return ()
-        | Ok prev -> status_loop ~timer ~prev () )
+        | Ok prev -> aux ~timer ~prev () )
     | `Tm ->
         Logs.err (fun m ->
             m
@@ -552,14 +447,146 @@ let start (src : Logs.src) (sender : sender) (pending : pending ref)
         set_status ~step status;
         set_streams ~step raw_streams;
         (match errors with [] -> () | errors -> set_errors ~step errors);
-        List.iter
-          (function
-            | `Structure x -> set_structure ~step x
-            | `Bitrate x -> set_bitrate ~step x
-            | `T2MI_info x -> set_t2mi_info ~step x
-            | `Deverr x -> set_deverr ~step x)
-          probes;
+        List.iter (set_probe ~step) probes;
         React.Step.execute step;
         Lwt.return_ok status.versions
+  in
+  aux ()
+
+let start (src : Logs.src) (sender : sender) (pending : pending ref)
+    (req_queue : api_msg Queue_lwt.t) (rsp_event : Request.rsp ts React.event)
+    (evt_queue : Request.evt ts Lwt_stream.t) (kv : config Kv_v.rw)
+    (t2mi_mode_listener : t2mi_mode Lwt_stream.t)
+    (set_state : Topology.state set) (set_devinfo : devinfo set)
+    (set_status : Parser.Status.t set)
+    (set_errors : (Stream.Multi_TS_ID.t * Error.t list) list set)
+    (set_streams : Stream.Raw.t list set)
+    (set_probe : ?step:React.step -> probe -> unit) =
+  let (module Logs : Logs.LOG) = Logs.src_log src in
+  let clear_pending () =
+    List.iter (Lwt.cancel % snd) !pending;
+    pending := []
+  in
+  let reset_notifs () =
+    let step = React.Step.create () in
+    set_state ~step `No_response;
+    set_streams ~step [];
+    set_probe ~step (`Structure []);
+    set_probe ~step (`T2MI_info []);
+    React.Step.execute step
+  in
+  let evt_queue =
+    Lwt_stream.filter_map
+      (fun { data; timestamp } ->
+        let ( >>= ) x f = match x with Ok x -> f x | Error _ as e -> e in
+        let res =
+          match (data : Request.evt) with
+          | { tag = `Status; body } ->
+              Parser.Status.parse ~timestamp body >>= fun x -> Ok (`Status x)
+          | { tag = `Streams; body } ->
+              Parser.parse_streams body >>= fun x -> Ok (`Streams x)
+          | { tag = `Ts_errors; body } ->
+              Parser.TS_error.parse ~timestamp body >>= fun x ->
+              Ok (`Ts_errors x)
+          | { tag = `T2mi_errors; body } ->
+              Parser.T2MI_error.parse ~timestamp body >>= fun x ->
+              Ok (`T2mi_errors x)
+          | { tag = `End_of_errors; _ } -> Ok `End_of_errors
+          | { tag = `End_of_transmission; _ } -> Ok `End_of_transmission
+        in
+        match res with
+        | Ok x -> Some x
+        | Error e ->
+            Logs.err (fun m ->
+                m "Error parsing '%s' event: %s"
+                  (Request.event_tag_to_string data.tag)
+                @@ Request.error_to_string e);
+            None)
+      evt_queue
+  in
+  let rec restart () =
+    Logs.info (fun m -> m "Restarting...");
+    clear_pending ();
+    reset_notifs ();
+    Queue_lwt.clear req_queue >>= fun () ->
+    Lwt_stream.junk_old evt_queue >>= fun () ->
+    Lwt_stream.junk_old t2mi_mode_listener >>= fun () ->
+    Lwt_unix.sleep cooldown_timeout >>= detect
+  and detect () =
+    Logs.info (fun m -> m "Start of connection establishment...");
+    set_state `Detect;
+    let rec loop () =
+      Lwt.pick
+        [
+          (Lwt_stream.next evt_queue >>= fun x -> Lwt.return @@ `E x);
+          (Util_react.E.next rsp_event >>= fun x -> Lwt.return @@ `R x);
+        ]
+      >>= function
+      | `E (`Status _) ->
+          Logs.debug (fun m ->
+              m "The device was already initialized, got status event");
+          request src rsp_event evt_queue sender Request.Get_devinfo
+      | `R { data = `Simple { tag = `Devinfo; body }; _ } -> (
+          match Parser.parse_devinfo body with
+          | Error _ as e -> Lwt.return e
+          | Ok info as x ->
+              Logs.debug (fun m ->
+                  m
+                    "The device is waiting, for initialization, got device \
+                     info event: %a"
+                    pp_devinfo info);
+              Lwt.return x )
+      | _ -> loop ()
+    in
+    loop () >>= function
+    | Error e ->
+        Logs.err (fun m ->
+            m "Got error during detect step: %s" @@ Request.error_to_string e);
+        restart ()
+    | Ok x ->
+        set_state `Init;
+        set_devinfo x;
+        Logs.info (fun m ->
+            m "Connection established, device initialization started...");
+        Lwt_stream.junk_old evt_queue >>= initialize
+  and initialize () =
+    kv#get
+    >>= fun { input_source; t2mi_source; input; t2mi_mode; jitter_mode } ->
+    sender.send Request.(Set_src_id { input_source; t2mi_source }) >>= fun () ->
+    let t2mi_mode =
+      match t2mi_mode.stream with
+      | ID _id -> t2mi_mode
+      | Full _ -> { t2mi_mode with enabled = false }
+    in
+    sender.send Request.(Set_mode { input; t2mi_mode }) >>= fun () ->
+    sender.send Request.(Set_jitter_mode jitter_mode) >>= fun () ->
+    (* Wait for status - make sure that the desired mode is set. *)
+    let rec wait_status () =
+      Lwt_stream.next evt_queue >>= function
+      | `Status status ->
+          if
+            equal_t2mi_mode status.t2mi_mode t2mi_mode
+            && equal_jitter_mode status.jitter_mode jitter_mode
+          then Lwt.return_ok ()
+          else wait_status ()
+      | _ -> wait_status ()
+    in
+    Lwt.pick [ wait_status (); sleep status_timeout ] >>= function
+    | Ok () -> loop ()
+    | Error e ->
+        Logs.err (fun m ->
+            m "Initialization failed: %s" @@ Request.error_to_string e);
+        restart ()
+  and loop () =
+    set_state `Fine;
+    Logs.info (fun m -> m "Initialization done!");
+    Lwt.pick
+      [
+        status_loop ~src ~kv ~sender ~rsp_event ~evt_queue ~set_streams
+          ~set_status ~set_errors ~set_probe ();
+        t2mi_loop ~kv ~t2mi_mode_listener ~send:sender.send ();
+        client_loop ~req_queue ~evt_queue ~rsp_event ~pending ();
+      ]
+    >>= restart
   in
   detect
