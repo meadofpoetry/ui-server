@@ -599,14 +599,15 @@ let start (src : Logs.src) (sender : sender) (pending : pending ref)
       | _ -> wait_status ()
     in
     Lwt.pick [ wait_status (); sleep status_timeout ] >>= function
-    | Ok () -> loop ()
+    | Ok () ->
+        Logs.info (fun m -> m "Initialization done!");
+        set_state `Fine;
+        loop ()
     | Error e ->
         Logs.err (fun m ->
             m "Initialization failed: %s" @@ Request.error_to_string e);
         restart ()
   and loop () =
-    set_state `Fine;
-    Logs.info (fun m -> m "Initialization done!");
     let status_loop =
       Status_loop.start ~src ~kv ~sender ~rsp_event ~evt_queue ~set_streams
         ~set_status ~set_errors ~set_probe ()
