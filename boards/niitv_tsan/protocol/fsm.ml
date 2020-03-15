@@ -486,6 +486,10 @@ let start (src : Logs.src) (sender : sender) (pending : pending ref)
     (set_streams : Stream.Raw.t list set)
     (set_probe : ?step:React.step -> probe -> unit) =
   let (module Logs : Logs.LOG) = Logs.src_log src in
+  let log_loop_error = function
+    | `Status (e : Status_loop.error) ->
+        Logs.err (fun m -> m "status loop error: %a" Status_loop.pp_error e)
+  in
   let clear_pending () =
     List.iter (Lwt.cancel % snd) !pending;
     pending := []
@@ -615,9 +619,7 @@ let start (src : Logs.src) (sender : sender) (pending : pending ref)
         client_loop ~req_queue ~evt_queue ~rsp_event ~pending ();
       ]
     >>= fun error ->
-    ( match error with
-    | `Status e ->
-        Logs.err (fun m -> m "status loop error: %a" Status_loop.pp_error e) );
+    log_loop_error error;
     restart ()
   in
   detect
