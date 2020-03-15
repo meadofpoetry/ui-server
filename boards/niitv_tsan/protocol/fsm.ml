@@ -621,6 +621,9 @@ let start (src : Logs.src) (sender : sender) (pending : pending ref)
       ]
     >>= fun error ->
     log_loop_error error;
-    restart ()
+    match error with
+    | `Status (Status_loop.Probes_error _ | Status_loop.Probes_timeout) ->
+        loop ()
+    | _ -> restart ()
   in
   detect
