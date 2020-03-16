@@ -23,6 +23,14 @@ type event =
   | `End_of_errors
   | `End_of_transmission ]
 
+let event_to_string : event -> string = function
+  | `Status _ -> "Status"
+  | `Streams _ -> "Streams"
+  | `Ts_errors _ -> "TS errors"
+  | `T2mi_errors _ -> "T2-MI errors"
+  | `End_of_errors -> "End of errors"
+  | `End_of_transmission -> "End of transmission"
+
 type probe =
   [ `Bitrate of (Stream.Multi_TS_ID.t * int Bitrate.t) list
   | `Structure of (Stream.Multi_TS_ID.t * Structure.t) list
@@ -39,13 +47,6 @@ type api_msg = int * send_client
 type pending = (int * (unit, Request.error) result Lwt.t) list
 
 type sender = { send : 'a. 'a Request.t -> unit Lwt.t }
-
-type event_acc = {
-  prev : Parser.Status.versions option;
-  status : Parser.Status.t;
-  streams : Stream.Multi_TS_ID.t list;
-  errors : (Stream.Multi_TS_ID.t * Error.t list) list;
-}
 
 let ( >>= ) = Lwt.( >>= )
 
@@ -98,21 +99,6 @@ let to_raw_stream ~input_source ~t2mi_source (status : Parser.Status.t)
         else TS
       in
       Some { Stream.Raw.id = TS_multi id; source; typ }
-
-let log_unexpected_event src expected got =
-  let expected =
-    String.concat "/" @@ List.map Request.simple_tag_to_string expected
-  in
-  let got =
-    match got with
-    | `Status _ -> "Status"
-    | `Streams _ -> "Streams"
-    | `Ts_errors _ -> "TS errors"
-    | `T2mi_errors _ -> "T2-MI errors"
-    | `End_of_errors -> "End of errors"
-    | `End_of_transmission -> "End of transmission"
-  in
-  Logs.err ~src (fun m -> m "Expected '%s', but got '%s'" expected got)
 
 let log_error (type a) src (req : a Request.t) (error : Request.error) =
   Logs.err ~src (fun m ->
@@ -263,6 +249,233 @@ let get_t2mi_info request (old : Parser.Status.versions option)
         in
         Lwt.return_ok (`T2MI_info [ (stream, x) ] :: probes))
 
+(*
+ * Loop that handles client requests.
+ *)
+let client_loop ~req_queue ~evt_queue ~rsp_event ~pending () : 'a Lwt.t =
+  let rec aux () =
+    Lwt.pick
+      [
+        (Queue_lwt.next req_queue >>= fun x -> Lwt.return (`C x));
+        (Lwt.nchoose @@ List.map snd !pending >>= fun _ -> Lwt.return `R);
+      ]
+    >>= function
+    | `R ->
+        pending := List.filter (Lwt.is_sleeping % snd) !pending;
+        Queue_lwt.check_condition req_queue >>= aux
+    | `C (id, send) ->
+        let r = send rsp_event evt_queue in
+        pending := (id, r) :: !pending;
+        aux ()
+  in
+  aux ()
+
+(*
+ * Loop for changing T2-MI settings.
+ * NOTE: This is actually a hack.
+ * This loop is needed because concept of stream ID is different
+ * in this app and in the hardware board.
+ * Board stream ID is quite simple 32 bit value and cannot be used
+ * as an unique identifier for stream within the application.
+ * App stream ID is presented as UUID.
+ * When the user changes stream UUID which is used for T2-MI analysis,
+ * we must first check if there is a corresponding 32-bit ID, and if no,
+ * we must disable T2-MI analysis to prevent unexpected
+ * monitoring results.
+ *)
+let t2mi_loop ~t2mi_mode_listener ~send ~kv () : 'a Lwt.t =
+  let rec aux () =
+    Lwt_stream.last_new t2mi_mode_listener >>= fun t2mi_mode ->
+    kv#get >>= fun { input; _ } ->
+    let req = Request.Set_mode { input; t2mi_mode } in
+    send req >>= aux
+  in
+  aux ()
+
+(*
+ * Loop which waits for status and corresponding board events.
+ * When a status is received, this loop decides which probes
+ * should be requested based on status values.
+ *)
+module Status_loop = struct
+  type error =
+    | Unexpected_event of (Request.simple_tag list * event)
+    | Event_timeout of (Request.simple_tag list * float)
+    | Status_timeout of float
+    | Probes_error of Request.error
+    | Probes_timeout
+
+  type event_acc = {
+    prev : Parser.Status.versions option;
+    status : Parser.Status.t;
+    streams : Stream.Multi_TS_ID.t list;
+    errors : (Stream.Multi_TS_ID.t * Error.t list) list;
+    probes : probe list;
+    timer : unit Lwt.t;
+  }
+
+  let event_list_to_string : Request.simple_tag list -> string =
+    String.concat " | " % List.map Request.simple_tag_to_string
+
+  let pp_error ppf = function
+    | Event_timeout (expected, timeout) ->
+        let expected : string = event_list_to_string expected in
+        Fmt.fmt "events [%s] timed out for %g seconds" ppf expected timeout
+    | Unexpected_event (expected, got) ->
+        let expected : string = event_list_to_string expected in
+        let got : string = event_to_string got in
+        Fmt.fmt "unexpected event; expected [%s], got [%s]" ppf expected got
+    | Status_timeout timeout ->
+        Fmt.fmt
+          "seems that the device is not responding, got no status for %g \
+           seconds"
+          ppf timeout
+    | Probes_error e -> Fmt.fmt "probes error: %a" ppf Request.pp_error e
+    | Probes_timeout -> Fmt.string ppf "got status earlier than probes"
+
+  let error_to_string = Format.asprintf "%a" pp_error
+
+  let set_event_timer ?(timeout = event_timeout) tag =
+    Lwt_unix.sleep timeout >>= fun () ->
+    Lwt.return_error (Event_timeout (tag, timeout))
+
+  let set_status_timer ?(timeout = status_timeout) () = Lwt_unix.sleep timeout
+
+  let handle_errors (acc : event_acc) stream errors =
+    let errors =
+      Boards.Util.List.Assoc.update ~eq:( = )
+        (function
+          | None -> ( match errors with [] -> None | l -> Some l )
+          | Some x -> Some (errors @ x))
+        stream acc.errors
+    in
+    { acc with errors }
+
+  let rec start ~src ~kv ~sender ~rsp_event ~evt_queue
+      ~(set_status : Parser.Status.t set)
+      ~(set_errors : (Stream.Multi_TS_ID.t * Error.t list) list set)
+      ~(set_streams : Stream.Raw.t list set)
+      ~(set_probe : ?step:React.step -> probe -> unit) () =
+    let rec wait_status ?(prev_acc : event_acc option) () =
+      let rec status_waiter () =
+        Lwt_stream.next evt_queue >>= function
+        | `Status status ->
+            let timer = set_status_timer () in
+            let prev =
+              match prev_acc with None -> None | Some { prev; _ } -> prev
+            in
+            let acc : event_acc =
+              { prev; status; streams = []; errors = []; probes = []; timer }
+            in
+            Lwt.return_ok acc
+        | _ -> status_waiter ()
+      in
+      (* If the timer was already set, use it. If no - set the new timer. *)
+      let timer =
+        ( match prev_acc with
+        | None -> set_status_timer ()
+        | Some { timer; _ } -> timer )
+        >>= fun () -> Lwt.return_error (Status_timeout status_timeout)
+      in
+      Lwt.pick [ timer; status_waiter () ] >>= function
+      | Ok (acc : event_acc) -> wait_streams acc
+      | Error e -> Lwt.return e
+    (* Wait for streams event which should
+       follow status event during normal operation *)
+    and wait_streams (acc : event_acc) =
+      let streams_waiter =
+        Lwt_stream.next evt_queue >>= function
+        | `Streams x -> Lwt.return_ok { acc with streams = x }
+        | event -> Lwt.return_error (Unexpected_event ([ `Streams ], event))
+      in
+      Lwt.pick [ set_event_timer [ `Streams ]; streams_waiter ] >>= function
+      | Ok acc -> wait_errors acc
+      | Error e -> Lwt.return e
+    (* Wait for errors event.
+       Following rules are applied:
+       - if T2-MI or TS errors were received,
+         end of errors event should be sent by the device
+       - if no errors were received,
+         end of transmission event should be sent by the device
+         without end of errors event.
+         Current implementation permits end of errors event without
+         errors event.
+    *)
+    and wait_errors acc =
+      let possible_events =
+        [ `T2mi_errors; `Ts_errors; `End_of_errors; `End_of_transmission ]
+      in
+      let errors_waiter =
+        Lwt_stream.next evt_queue >>= fun event ->
+        match (event, acc.errors) with
+        | (`T2mi_errors (stream, errors) | `Ts_errors (stream, errors)), _ ->
+            Lwt.return_ok (`Errors (handle_errors acc stream errors))
+        | `End_of_errors, _ -> Lwt.return_ok (`EOE acc)
+        | `End_of_transmission, [] -> Lwt.return_ok (`EOT acc)
+        | `End_of_transmission, _ ->
+            let error = Unexpected_event ([ `End_of_errors ], event) in
+            Lwt.return_error error
+        | event, _ ->
+            let error = Unexpected_event (possible_events, event) in
+            Lwt.return_error error
+      in
+      Lwt.pick [ set_event_timer possible_events; errors_waiter ] >>= function
+      | Ok (`Errors acc) -> wait_errors acc
+      | Ok (`EOE acc) -> wait_end_of_transmission acc
+      | Ok (`EOT acc) -> get_probes acc
+      | Error e -> Lwt.return e
+    and wait_end_of_transmission acc =
+      let eot_waiter =
+        Lwt_stream.next evt_queue >>= function
+        | `End_of_transmission -> Lwt.return_ok acc
+        | event ->
+            let error = Unexpected_event ([ `End_of_transmission ], event) in
+            Lwt.return_error error
+      in
+      Lwt.pick [ set_event_timer [ `End_of_transmission ]; eot_waiter ]
+      >>= function
+      | Ok acc -> get_probes acc
+      | Error e -> Lwt.return e
+    (* Wait for probes - regular requests for additional info retrieval *)
+    and get_probes ({ prev; status; _ } as acc : event_acc) =
+      let rec wait_status () =
+        Lwt_stream.next evt_queue >>= function
+        | `Status _ -> Lwt.return_error Probes_timeout
+        | _ -> wait_status ()
+      in
+      let request req = request src rsp_event evt_queue sender req in
+      let probes_waiter =
+        Lwt_result.Infix.(
+          get_deverr request status.errors []
+          >>= get_structures ~old:prev ~cur:status.versions request
+          >>= get_bitrate request status.basic.has_sync
+          >>= get_t2mi_info request prev status)
+        >>= function
+        | Ok probes -> Lwt.return_ok { acc with probes }
+        | Error e -> Lwt.return_error (Probes_error e)
+      in
+      Lwt.pick [ wait_status (); probes_waiter ] >>= function
+      | Ok acc -> finalize acc
+      | Error e -> Lwt.return e
+    (* Finalize loop cycle - send data upstream (to protocol). *)
+    and finalize ({ status; streams; errors; probes; _ } as acc) =
+      kv#get >>= fun { input_source; t2mi_source; _ } ->
+      let raw_streams =
+        List.filter_map
+          (to_raw_stream ~input_source ~t2mi_source status)
+          streams
+      in
+      let step = React.Step.create () in
+      set_status ~step status;
+      set_streams ~step raw_streams;
+      (match errors with [] -> () | errors -> set_errors ~step errors);
+      List.iter (set_probe ~step) probes;
+      React.Step.execute step;
+      wait_status ~prev_acc:acc ()
+    in
+    wait_status ()
+end
+
 let start (src : Logs.src) (sender : sender) (pending : pending ref)
     (req_queue : api_msg Queue_lwt.t) (rsp_event : Request.rsp ts React.event)
     (evt_queue : Request.evt ts Lwt_stream.t) (kv : config Kv_v.rw)
@@ -271,11 +484,12 @@ let start (src : Logs.src) (sender : sender) (pending : pending ref)
     (set_status : Parser.Status.t set)
     (set_errors : (Stream.Multi_TS_ID.t * Error.t list) list set)
     (set_streams : Stream.Raw.t list set)
-    (set_structure : (Stream.Multi_TS_ID.t * Structure.t) list set)
-    (set_bitrate : (Stream.Multi_TS_ID.t * int Bitrate.t) list set)
-    (set_t2mi_info : (Stream.Multi_TS_ID.t * (int * T2mi_info.t) list) list set)
-    (set_deverr : Deverr.t list set) =
+    (set_probe : ?step:React.step -> probe -> unit) =
   let (module Logs : Logs.LOG) = Logs.src_log src in
+  let log_loop_error = function
+    | `Status (e : Status_loop.error) ->
+        Logs.err (fun m -> m "status loop error: %a" Status_loop.pp_error e)
+  in
   let clear_pending () =
     List.iter (Lwt.cancel % snd) !pending;
     pending := []
@@ -284,8 +498,8 @@ let start (src : Logs.src) (sender : sender) (pending : pending ref)
     let step = React.Step.create () in
     set_state ~step `No_response;
     set_streams ~step [];
-    set_structure ~step [];
-    set_t2mi_info ~step [];
+    set_probe ~step (`Structure []);
+    set_probe ~step (`T2MI_info []);
     React.Step.execute step
   in
   let evt_queue =
@@ -385,181 +599,28 @@ let start (src : Logs.src) (sender : sender) (pending : pending ref)
       | _ -> wait_status ()
     in
     Lwt.pick [ wait_status (); sleep status_timeout ] >>= function
-    | Ok () -> idle ()
+    | Ok () ->
+        Logs.info (fun m -> m "Initialization done!");
+        set_state `Fine;
+        loop ()
     | Error e ->
         Logs.err (fun m ->
             m "Initialization failed: %s" @@ Request.error_to_string e);
         restart ()
-  and idle () =
-    set_state `Fine;
-    Logs.info (fun m -> m "Initialization done!");
-    Lwt.pick [ status_loop (); t2mi_loop (); client_loop () ] >>= restart
-  and t2mi_loop () : unit Lwt.t =
-    Lwt_stream.last_new t2mi_mode_listener >>= fun t2mi_mode ->
-    kv#get >>= fun { input; _ } ->
-    let req = Request.Set_mode { input; t2mi_mode } in
-    sender.send req >>= t2mi_loop
-  (* request src rsp_event evt_queue sender req
-   * >>= function
-   * | Ok () -> t2mi_loop ()
-   * | Error e ->
-   *   Logs.err (fun m ->
-   *       m "Error during internal T2-MI mode setup: %s"
-   *       @@ Request.error_to_string e);
-   *   Lwt.return () *)
-  and client_loop () : unit Lwt.t =
+  and loop () =
+    let status_loop =
+      Status_loop.start ~src ~kv ~sender ~rsp_event ~evt_queue ~set_streams
+        ~set_status ~set_errors ~set_probe ()
+      >>= fun x -> Lwt.return (`Status x)
+    in
     Lwt.pick
       [
-        (Queue_lwt.next req_queue >>= fun x -> Lwt.return (`C x));
-        (Lwt.nchoose @@ List.map snd !pending >>= fun _ -> Lwt.return `R);
+        status_loop;
+        t2mi_loop ~kv ~t2mi_mode_listener ~send:sender.send ();
+        client_loop ~req_queue ~evt_queue ~rsp_event ~pending ();
       ]
-    >>= function
-    | `R ->
-        pending := List.filter (Lwt.is_sleeping % snd) !pending;
-        Queue_lwt.check_condition req_queue >>= client_loop
-    | `C (id, send) ->
-        let r = send rsp_event evt_queue in
-        pending := (id, r) :: !pending;
-        client_loop ()
-  and status_loop
-      ?(timer = Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm)
-      ?(prev : Parser.Status.versions option) () : unit Lwt.t =
-    let rec wait_status () =
-      Lwt_stream.next evt_queue >>= function
-      | `Status status -> Lwt.return @@ `S status
-      | _ -> wait_status ()
-    in
-    Lwt.pick [ timer; wait_status () ] >>= function
-    | `S status -> (
-        let timer =
-          Lwt_unix.sleep status_timeout >>= fun () -> Lwt.return `Tm
-        in
-        wait_streams { prev; status; streams = []; errors = [] } >>= function
-        | Error _ -> Lwt.return ()
-        | Ok prev -> status_loop ~timer ~prev () )
-    | `Tm ->
-        Logs.err (fun m ->
-            m
-              "Seems that the device is not responding, got no status for %g \
-               seconds"
-              status_timeout);
-        Lwt.return ()
-  and wait_streams acc =
-    Lwt.pick
-      [
-        sleep event_timeout;
-        (Lwt_stream.next evt_queue >>= function
-         | `Streams x -> Lwt.return_ok { acc with streams = x }
-         | event ->
-             log_unexpected_event src [ `Streams ] event;
-             Lwt.return_error (Request.Custom "Unexpected event"));
-      ]
-    >>= function
-    | Ok acc -> wait_errors acc
-    | Error e ->
-        Logs.err (fun m ->
-            m "Error while waiting for streams event: %s"
-            @@ Request.error_to_string e);
-        Lwt.return_error e
-  and wait_errors acc =
-    let wait_event =
-      Lwt_stream.next evt_queue >>= function
-      | `T2mi_errors (stream, errors) ->
-          let errors =
-            Boards.Util.List.Assoc.update ~eq:( = )
-              (function
-                | None -> ( match errors with [] -> None | l -> Some l )
-                | Some x -> Some (errors @ x))
-              stream acc.errors
-          in
-          Lwt.return_ok (`E { acc with errors })
-      | `Ts_errors (stream, errors) ->
-          let errors =
-            Boards.Util.List.Assoc.update ~eq:( = )
-              (function
-                | None -> ( match errors with [] -> None | l -> Some l )
-                | Some x -> Some (errors @ x))
-              stream acc.errors
-          in
-          Lwt.return_ok (`E { acc with errors })
-      | `End_of_errors -> Lwt.return_ok `EOE
-      | `End_of_transmission as rsp -> (
-          match acc.errors with
-          | [] -> Lwt.return_ok `EOT
-          | _ ->
-              log_unexpected_event src [ `End_of_errors ] rsp;
-              Lwt.return_error (Request.Custom "Unexpected event") )
-      | rsp ->
-          let exp =
-            [ `T2mi_errors; `Ts_errors; `End_of_errors; `End_of_transmission ]
-          in
-          log_unexpected_event src exp rsp;
-          Lwt.return_error (Request.Custom "Unexpected event")
-    in
-    Lwt.pick [ sleep event_timeout; wait_event ] >>= function
-    | Ok `EOE -> wait_eot acc
-    | Ok `EOT -> finalize_events acc
-    | Ok (`E acc) -> wait_errors acc
-    | Error e ->
-        Logs.err (fun m ->
-            m "Error while waiting for errors event: %s"
-            @@ Request.error_to_string e);
-        Lwt.return_error e
-  and wait_eot acc =
-    Lwt.pick
-      [
-        sleep event_timeout;
-        (Lwt_stream.next evt_queue >>= function
-         | `End_of_transmission -> Lwt.return_ok ()
-         | rsp ->
-             log_unexpected_event src [ `End_of_transmission ] rsp;
-             Lwt.return_error (Request.Custom "Unexpected event"));
-      ]
-    >>= function
-    | Ok () -> finalize_events acc
-    | Error e ->
-        Logs.err (fun m ->
-            m "Error while waiting for EOT event: %s"
-            @@ Request.error_to_string e);
-        Lwt.return_error e
-  and get_probes { prev; status; _ } =
-    let request req = request src rsp_event evt_queue sender req in
-    Lwt_result.Infix.(
-      get_deverr request status.errors []
-      >>= get_structures ~old:prev ~cur:status.versions request
-      >>= get_bitrate request status.basic.has_sync
-      >>= get_t2mi_info request prev status)
-  and finalize_events ({ status; streams; errors; _ } as acc) =
-    let rec wait_status () =
-      Lwt_stream.next evt_queue >>= function
-      | `Status _status ->
-          Lwt.return_error (Request.Custom "Got status earlier than probes")
-      | _ -> wait_status ()
-    in
-    Lwt.pick [ get_probes acc; wait_status () ] >>= function
-    | Error e ->
-        Logs.err (fun m ->
-            m "Error while fetching probes: %s" @@ Request.error_to_string e);
-        Lwt.return_error e
-    | Ok probes ->
-        kv#get >>= fun { input_source; t2mi_source; _ } ->
-        let raw_streams =
-          List.filter_map
-            (to_raw_stream ~input_source ~t2mi_source status)
-            streams
-        in
-        let step = React.Step.create () in
-        set_status ~step status;
-        set_streams ~step raw_streams;
-        (match errors with [] -> () | errors -> set_errors ~step errors);
-        List.iter
-          (function
-            | `Structure x -> set_structure ~step x
-            | `Bitrate x -> set_bitrate ~step x
-            | `T2MI_info x -> set_t2mi_info ~step x
-            | `Deverr x -> set_deverr ~step x)
-          probes;
-        React.Step.execute step;
-        Lwt.return_ok status.versions
+    >>= fun error ->
+    log_loop_error error;
+    restart ()
   in
   detect

@@ -10,13 +10,15 @@ type error =
   | Invalid_payload
   | Custom of string
 
-let error_to_string = function
-  | Timeout -> "timeout"
-  | Queue_overflow -> "queue overflow"
-  | Not_responding -> "not responding"
-  | Invalid_length -> "invalid length"
-  | Invalid_payload -> "invalid payload"
-  | Custom s -> s
+let pp_error ppf = function
+  | Timeout -> Fmt.string ppf "timeout"
+  | Queue_overflow -> Fmt.string ppf "queue overflow"
+  | Not_responding -> Fmt.string ppf "not responding"
+  | Invalid_length -> Fmt.string ppf "invalid length"
+  | Invalid_payload -> Fmt.string ppf "invalid payload"
+  | Custom s -> Fmt.fmt "custom error: %s" ppf s
+
+let error_to_string = Format.asprintf "%a" pp_error
 
 type req_tag = [ `Set_source_id | `Set_mode | `Get_devinfo | `Get_mode ]
 [@@deriving eq]
