@@ -3,6 +3,7 @@ open Js_of_ocaml_lwt
 open Js_of_ocaml_tyxml
 open Components
 open Pipeline_types
+open Application_types
 open Container_utils
 
 let name = "container-editor"
@@ -129,8 +130,9 @@ type widget_mode_state = {
   cell : Dom_html.element Js.t;
 }
 
-class t ~(scaffold : Scaffold.t) (structure : Structure.Annotated.t)
-  (wm : Wm.Annotated.t) (elt : Dom_html.element Js.t) =
+class t ~(scaffold : Scaffold.t) (streams : Stream.t list)
+  (structure : Structure.Annotated.t) (wm : Wm.Annotated.t)
+  (elt : Dom_html.element Js.t) =
   object (self)
     val s_state = React.S.create ~eq:(Util_equal.List.equal Element.equal) []
 
@@ -147,7 +149,7 @@ class t ~(scaffold : Scaffold.t) (structure : Structure.Annotated.t)
 
     val table_dialog = UI.add_table_dialog ()
 
-    val wizard_dialog = UI.make_wizard_dialog structure wm
+    val wizard_dialog = UI.make_wizard_dialog streams structure wm
 
     val content =
       match Element.query_selector elt Selector.content with
@@ -564,10 +566,10 @@ let make_grid (props : grid_properties) =
   Grid.D.create ~rows:(`Value props.rows) ~cols:(`Value props.cols)
     ~content:cells ()
 
-let make ~(scaffold : Scaffold.t) (structure : Structure.Annotated.t)
-    (wm : Wm.Annotated.t) =
+let make ~(scaffold : Scaffold.t) (streams : Stream.t list)
+    (structure : Structure.Annotated.t) (wm : Wm.Annotated.t) =
   let grid = make_grid @@ grid_properties_of_layout wm in
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element @@ D.create grid
   in
-  new t ~scaffold structure wm elt
+  new t ~scaffold streams structure wm elt
