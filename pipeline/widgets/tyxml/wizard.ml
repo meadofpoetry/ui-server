@@ -127,7 +127,8 @@ struct
                node :: acc)
          [] channels
 
-  let create_stream_nodes (widgets : ((string * Wm.widget) * channel) list)
+  let create_stream_nodes (get_label : Stream.ID.t -> string)
+      (widgets : ((string * Wm.widget) * channel) list)
       (structure : Structure.Annotated.t) =
     let streams =
       List.fold_left
@@ -165,8 +166,7 @@ struct
               let stream_node =
                 treeview_node
                   ~graphic:(Html.Unsafe.coerce_elt checkbox)
-                  ~child_nodes
-                  ~value:(Stream.ID.to_string stream)
+                  ~child_nodes ~value:(get_label stream)
                   ~primary_text:(`Text text) ()
               in
               stream_node :: acc)
@@ -174,7 +174,8 @@ struct
     in
     treeview ~dense:true ~children:nodes ()
 
-  let create_treeview (streams : Structure.Annotated.t) (wm : Wm.Annotated.t) =
+  let create_treeview (get_label : Stream.ID.t -> string)
+      (streams : Structure.Annotated.t) (wm : Wm.Annotated.t) =
     let widgets =
       List.filter_map
         (fun (name, (widget : Wm.widget)) ->
@@ -184,7 +185,7 @@ struct
           | (Nihil : Wm.domain) -> None)
         wm.widgets
     in
-    create_stream_nodes widgets streams
+    create_stream_nodes get_label widgets streams
 
   let create_empty_placeholder ?classes ?a () =
     placeholder ?classes ?a

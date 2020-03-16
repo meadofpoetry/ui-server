@@ -266,14 +266,16 @@ let make_wizard (scaffold : Scaffold.t) =
   let thread =
     let open React in
     Http_wm.get_layout () >>=? fun wm ->
-    Http_structure.get_annotated () >>=? fun streams ->
+    Http_structure.get_streams () >>=? fun streams ->
+    Http_structure.get_annotated () >>=? fun structures ->
     Api_js.Websocket.JSON.open_socket
       ~path:(Netlib.Uri.Path.Format.of_string "ws")
       ()
     >>=? fun socket ->
     Http_wm.Event.get socket >>=? fun (_, wm_event) ->
     Http_structure.Event.get_annotated socket >>=? fun (_, streams_event) ->
-    let wizard = Pipeline_widgets.Wizard.make streams wm in
+    let streams = List.map snd streams in
+    let wizard = Pipeline_widgets.Wizard.make streams structures wm in
     let notif =
       E.merge
         (fun _ -> wizard#notify)

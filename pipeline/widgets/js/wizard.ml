@@ -220,7 +220,16 @@ let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
   in
   merge None old#root_nodes cur#root_nodes
 
-class t ~treeview ~layout ~structure (elt : Dom_html.element Js.t) () =
+(*
+ * TODO
+ * Add Streams update notification via notify
+ *)
+class t ~treeview ~layout ~streams ~structure (elt : Dom_html.element Js.t) () =
+  let get_stream_label id =
+    match List.find_opt (fun (s : Stream.t) -> s.id = id) streams with
+    | None -> Stream.ID.to_string id
+    | Some s -> Stream.Source.to_string s.source.info
+  in
   object (self)
     inherit Widget.t elt () as super
 
@@ -265,7 +274,7 @@ class t ~treeview ~layout ~structure (elt : Dom_html.element Js.t) () =
           let cur =
             Treeview.attach
             @@ Tyxml_js.To_dom.of_element
-            @@ D.create_treeview structure layout
+            @@ D.create_treeview get_stream_label structure layout
           in
           let focus_target = merge_trees ~old ~cur in
           Element.remove_child_safe super#root old#root;
@@ -278,13 +287,19 @@ class t ~treeview ~layout ~structure (elt : Dom_html.element Js.t) () =
       Element.insert_child_at_index super#root 0 treeview#root
   end
 
-let make (structure : Structure.Annotated.t) (wm : Wm.Annotated.t) =
+let make (streams : Stream.t list) (structure : Structure.Annotated.t)
+    (wm : Wm.Annotated.t) =
+  let get_stream_label id =
+    match List.find_opt (fun (s : Stream.t) -> s.id = id) streams with
+    | None -> Stream.ID.to_string id
+    | Some s -> Stream.Source.to_string s.source.info
+  in
   let treeview =
     Treeview.attach
     @@ Tyxml_js.To_dom.of_element
-    @@ D.create_treeview structure wm
+    @@ D.create_treeview get_stream_label structure wm
   in
   let (elt : Dom_html.element Js.t) =
     Tyxml_js.To_dom.of_element @@ D.create ~treeview:treeview#markup ()
   in
-  new t ~layout:wm ~structure ~treeview elt ()
+  new t ~layout:wm ~streams ~structure ~treeview elt ()

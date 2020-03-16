@@ -259,9 +259,9 @@ module UI = struct
     let dialog = Dialog.make ~title ~content ~actions () in
     (textfield, accept, dialog)
 
-  let make_wizard_dialog structure wm =
+  let make_wizard_dialog streams structure wm =
     let open Dialog.D in
-    let wizard = Pipeline_widgets.Wizard.make structure wm in
+    let wizard = Pipeline_widgets.Wizard.make streams structure wm in
     let title = dialog_title ~title:Pipeline_widgets.Wizard.title () in
     let content = dialog_content ~children:[ wizard#markup ] () in
     let actions =

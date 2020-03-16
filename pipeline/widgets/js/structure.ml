@@ -130,11 +130,11 @@ let make_channel
   Treeview.D.treeview_node ~value:(string_of_int ch.number) ~graphic ~checked
     ~indeterminate ~child_nodes ~primary_text:(`Text text) ()
 
-let make_stream
+let make_stream (get_label : Stream.ID.t -> string)
     ( (_state : Structure.Annotated.state),
       ({ id; channels; _ } : Structure.Annotated.structure) ) =
   (* FIXME stream name *)
-  let text = Printf.sprintf "%s" @@ Stream.ID.to_string id in
+  let text = get_label id in
   let compare (_, (a : Structure.Annotated.channel as 'a)) (_, (b : 'a)) =
     compare a.number b.number
   in
@@ -150,8 +150,8 @@ let make_stream
     ~graphic:checkbox#markup ~checked ~indeterminate ~child_nodes
     ~primary_text:(`Text text) ()
 
-let make_treeview (structure : Structure.Annotated.t) =
-  let children = List.map make_stream structure in
+let make_treeview get_label (structure : Structure.Annotated.t) =
+  let children = List.map (make_stream get_label) structure in
   Treeview.make ~dense:true ~children ()
 
 type event = [ `Structure of Structure.Annotated.t ]
@@ -252,17 +252,26 @@ let merge_trees ~(old : Treeview.t) ~(cur : Treeview.t) =
   in
   merge None old#root_nodes cur#root_nodes
 
-class t (structure : Structure.Annotated.t) () =
+(*
+ * TODO
+ * Add Streams update notification via notify
+ *)
+class t (streams : Stream.t list) (structure : Structure.Annotated.t) () =
   let submit = Button.make ~label:"Применить" () in
   let buttons = Card.D.card_action_buttons ~children:[ submit#markup ] () in
   let actions = Card.D.card_actions ~children:[ buttons ] () in
+  let get_stream_label id =
+    match List.find_opt (fun (s : Stream.t) -> s.id = id) streams with
+    | None -> Stream.ID.to_string id
+    | Some s -> Stream.Source.to_string s.source.info
+  in
   object (self)
     val placeholder =
       Components_lab.Placeholder.make
         ~icon:Icon.SVG.(D.icon ~d:Path.information ())
         ~text:(`Text "Потоки не обнаружены") ()
 
-    val mutable _treeview = make_treeview structure
+    val mutable _treeview = make_treeview get_stream_label structure
 
     val mutable _structure : Structure.Annotated.t = structure
 
@@ -322,7 +331,7 @@ class t (structure : Structure.Annotated.t) () =
       | `Structure x ->
           _structure <- x;
           let old = _treeview in
-          let cur = make_treeview x in
+          let cur = make_treeview get_stream_label x in
           let focus_target = merge_trees ~old ~cur in
           super#remove_child old;
           old#destroy ();
@@ -337,4 +346,5 @@ class t (structure : Structure.Annotated.t) () =
       super#insert_child_at_idx 0
   end
 
-let make (structure : Structure.Annotated.t) () = new t structure ()
+let make (streams : Stream.t list) (structure : Structure.Annotated.t) () =
+  new t streams structure ()
