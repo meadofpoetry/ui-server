@@ -25,12 +25,12 @@ module Parse_struct = struct
 
   let widget_typ_to_string = function Wm.Video -> "Video" | Audio -> "Audio"
 
-  let stream sid (signal : t) =
+  let stream get_label sid (signal : t) =
     match
       List.find_opt (fun (_, { id; _ }) -> Stream.ID.equal id sid) signal
     with
     | None -> None
-    | Some ((_, structure) as s) -> Some (Stream.ID.to_string structure.id, s)
+    | Some ((_, structure) as s) -> Some (get_label structure.id, s)
 
   let widget typ pid_ ({ pids; _ } : channel) =
     match pid_ with
@@ -158,7 +158,7 @@ struct
     let nodes =
       List.fold_left
         (fun acc (stream, wds) ->
-          match Parse_struct.stream stream structure with
+          match Parse_struct.stream get_label stream structure with
           | None -> acc
           | Some (text, packed) ->
               let child_nodes = create_channel_nodes wds packed in
