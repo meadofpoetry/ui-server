@@ -621,6 +621,14 @@ let start (src : Logs.src) (sender : sender) (pending : pending ref)
       ]
     >>= fun error ->
     log_loop_error error;
+    (*
+     * TODO
+     * This is a dirty warkaround needed to cope with
+     * constant failures on the hardware side
+     * This need a more careful look and more elaborate fix,
+     * maybe catching of the incorrect responses from the board on
+     * the parser's side will do.
+     *)
     match error with
     | `Status (Status_loop.Probes_error _ | Status_loop.Probes_timeout) ->
         loop ()
