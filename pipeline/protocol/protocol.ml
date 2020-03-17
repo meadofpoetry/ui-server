@@ -235,22 +235,34 @@ let create db kv =
 let backend_lock = Lwt_mutex.create ()
 
 (* Extremely dirty workaround *)
-let filter_time =
-  let (min, max) =
+let (min, max) =
     let now = Ptime_clock.now () in
     let month = Option.get @@ Ptime.Span.of_d_ps (30, 0L) in
     (Option.get @@ Ptime.sub_span now month,
      Option.get @@ Ptime.add_span now month)
-  in
-  fun arr ->
+
+let filter_time arr =
   Array.to_seq arr
   |> Seq.filter (fun (p : Qoe_errors.point) ->
          Ptime.is_later p.time min
          && Ptime.is_later max p.time)
   |> Array.of_seq
 
+let filter_error (err : Qoe_errors.error) =
+  if Ptime.is_later err.cont_flag.time min
+     && Ptime.is_later max err.cont_flag.time
+     && Ptime.is_later err.peak_flag.time min
+     && Ptime.is_later max err.peak_flag.time
+  then err
+  else
+    let time = Ptime_clock.now () in
+    { cont_flag = { value = false; time; span = Ptime.Span.zero }
+    ; peak_flag = { value = false; time; span = Ptime.Span.zero }
+    }
+
 let filter_video_data (d : Qoe_errors.Video_data.t) =
   let dat = d.data in
+  let err = d.errors in
   let data : Qoe_errors.Video_data.data =
     { black = filter_time dat.black
     ; luma = filter_time dat.luma
@@ -258,15 +270,31 @@ let filter_video_data (d : Qoe_errors.Video_data.t) =
     ; diff = filter_time dat.diff
     ; blocky = filter_time dat.blocky
     }
-  in { d with data }
+  in
+  let errors : Qoe_errors.Video_data.errors =
+    { black = filter_error err.black
+    ; luma = filter_error err.luma
+    ; freeze = filter_error err.freeze
+    ; diff = filter_error err.diff
+    ; blocky = filter_error err.blocky
+    }
+  in { d with data; errors }
 
 let filter_audio_data (d : Qoe_errors.Audio_data.t) =
   let dat = d.data in
+  let err = d.errors in
   let data : Qoe_errors.Audio_data.data =
     { shortt = filter_time dat.shortt
     ; moment = filter_time dat.moment
     }
-  in { d with data }
+  in
+  let errors : Qoe_errors.Audio_data.errors =
+    { silence_shortt = filter_error err.silence_shortt
+    ; silence_moment = filter_error err.silence_moment
+    ; loudness_shortt = filter_error err.loudness_shortt
+    ; loudness_moment = filter_error err.loudness_moment
+    }
+  in { d with data; errors }
 
 let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
   let ( >>= ) = Lwt.bind in
