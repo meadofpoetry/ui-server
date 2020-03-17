@@ -165,7 +165,7 @@ struct
     Ptime.Span.to_float_s @@ Ptime.to_span x
     |> ( *. ) (Int64.to_float M.second)
     |> Int64.of_float
-
+(*
   let of_string (s : string) : t = of_int64 @@ Int64.of_string s
 
   let to_string (x : t) : string = Int64.to_string @@ to_int64 x
@@ -178,6 +178,15 @@ struct
     | exception _ -> Error "of_yojson"
 
   let to_yojson (x : t) : Yojson.Safe.t = `Intlit (to_string x)
+ *)
+
+  let of_string (s : string) : t = of_human_string_exn s
+
+  let to_string (x : t) : string = to_human_string x
+
+  let of_yojson (x : Yojson.Safe.t) : (t, string) result = of_yojson x
+
+  let to_yojson (x : t) : Yojson.Safe.t = to_yojson x
 end
 
 module Hours = Conv (struct
