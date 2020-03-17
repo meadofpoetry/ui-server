@@ -8,7 +8,7 @@ type t = {
 let default =
   {
     socket_path = "/tmp";
-    cleanup = Time.Period.Hours.of_int 1;
+    cleanup = Time.Period.Hours.of_int 24;
     password = "ats3";
   }
 
