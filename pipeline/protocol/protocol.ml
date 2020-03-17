@@ -234,6 +234,40 @@ let create db kv =
 
 let backend_lock = Lwt_mutex.create ()
 
+(* Extremely dirty workaround *)
+let filter_time =
+  let (min, max) =
+    let now = Ptime_clock.now () in
+    let month = Option.get @@ Ptime.Span.of_d_ps (30, 0L) in
+    (Option.get @@ Ptime.sub_span now month,
+     Option.get @@ Ptime.add_span now month)
+  in
+  fun arr ->
+  Array.to_seq arr
+  |> Seq.filter (fun (p : Qoe_errors.point) ->
+         Ptime.is_later p.time min
+         && Ptime.is_later max p.time)
+  |> Array.of_seq
+
+let filter_video_data (d : Qoe_errors.Video_data.t) =
+  let dat = d.data in
+  let data : Qoe_errors.Video_data.data =
+    { black = filter_time dat.black
+    ; luma = filter_time dat.luma
+    ; freeze = filter_time dat.freeze
+    ; diff = filter_time dat.diff
+    ; blocky = filter_time dat.blocky
+    }
+  in { d with data }
+
+let filter_audio_data (d : Qoe_errors.Audio_data.t) =
+  let dat = d.data in
+  let data : Qoe_errors.Audio_data.data =
+    { shortt = filter_time dat.shortt
+    ; moment = filter_time dat.moment
+    }
+  in { d with data }
+
 let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
   let ( >>= ) = Lwt.bind in
   let ( >>=? ) = Lwt_result.bind in
@@ -288,8 +322,8 @@ let reset state (sources : (Netlib.Uri.t * Stream.t) list) =
           applied_structs;
           status;
           status_raw = events.status;
-          vdata = events.vdata;
-          adata = events.adata (*  *);
+          vdata = React.E.map filter_video_data events.vdata;
+          adata = React.E.map filter_audio_data events.adata (*  *);
           settings_reset = React.S.const ();
           streams_reset = React.S.const ();
           wm_reset = React.S.const ();
