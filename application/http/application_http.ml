@@ -289,6 +289,7 @@ let create templates (app : Application.t) foreign_pages foreing_handlers
       ( foreing_handlers
       :: user_handlers app.users
       :: Pc_control_http.network_handlers app.network
+      :: Pc_control_http.time_handlers app.timedate
       :: Pc_control_http.software_updates_handlers app.updates
       :: Pc_control_http.power_handlers
       :: application_api

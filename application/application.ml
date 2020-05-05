@@ -12,6 +12,7 @@ let all_ok =
 type t = {
   proc : Data_processor.t option;
   network : Pc_control.Network.t;
+  timedate : Pc_control.Timedate.t;
   updates : Pc_control.Software_updates.t;
   users : User.passwd;
   hw : Hardware.t;
@@ -34,6 +35,7 @@ let create kv db =
   >>=? fun topology ->
   User.create kv >>=? fun users ->
   Pc_control.Network.create kv (* TODO version check *) >>=? fun network ->
+  Pc_control.Timedate.create () >>= fun timedate ->
   Pc_control.Software_updates.create "" () >>=? fun updates ->
   ( match topology with
   | `Boards _ -> Lwt.return_none
@@ -70,7 +72,7 @@ let create kv db =
   |> Util_react.E.aggregate (fun () -> Lwt_unix.sleep 1.0)
   |> E.map_p (fun x -> Database.Log.insert db @@ List.concat x)
   |> E.keep;
-  Lwt.return_ok ({ users; proc; network; updates; hw; db; topo = hw.topo }, loop)
+  Lwt.return_ok ({ users; proc; network; timedate; updates; hw; db; topo = hw.topo }, loop)
 
 let redirect_filter app = Api.Authorize.auth (User.validate app.users)
 
