@@ -83,3 +83,37 @@ module Power = struct
       ~query:Query.empty
       (fun _env res -> Lwt.return res)
 end
+
+module Timedate = struct
+
+  let get_config () =
+    Api_http.perform_unit ~meth:`GET
+      ~path:Path.Format.("api/timedate/config" @/ empty)
+      ~query:Query.empty
+      (fun _env res -> Lwt.return res)
+
+  let get_timezones () =
+    Api_http.perform_unit ~meth:`GET
+      ~path:Path.Format.("api/timedate/timezones" @/ empty)
+      ~query:Query.empty
+      (fun _env res -> Lwt.return res)
+
+  let set_timezone zone =
+    Api_http.perform_unit ~meth:`POST
+      ~path:Path.Format.("api/timedate/timezone" @/ empty)
+      ~query:Query.[ ("value", (module Single (String))) ]
+      zone
+
+  let set_ntp flag =
+    Api_http.perform_unit ~meth:`POST
+      ~path:Path.Format.("api/timedate/ntp" @/ empty)
+      ~query:Query.[ ("flag", (module Single (Bool))) ]
+      flag
+
+  let set_time value =
+    Api_http.perform_unit ~meth:`POST
+      ~path:Path.Format.("api/timedate/ntp" @/ empty)
+      ~query:Query.[ ("value", (module Single (Time_uri.Show))) ]
+      value
+  
+end
