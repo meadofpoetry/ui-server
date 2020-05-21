@@ -15,9 +15,9 @@ let default =
       {
         network =
           {
-            ip = Ipaddr.V4.make 192 168 0 1;
+            ip = Ipaddr.V4.make 192 168 100 1;
             mask = Ipaddr.V4.make 255 255 255 0;
-            gateway = Ipaddr.V4.make 192 168 0 1;
+            gateway = Ipaddr.V4.make 192 168 100 1;
           };
         udp = [];
       };
