@@ -158,15 +158,14 @@ let time_ws (timedate : Pc_control.Timedate.t) =
 let time_pages : 'a. unit -> 'a Api_template.item list =
  fun () ->
   let open Api_template in
-  let markup = Tyxml.Html.toelt @@ Page_power_management_tyxml.F.create () in
   let props =
     make_template_props ~title:"Дата и время"
       ~post_scripts:[ `Src "/js/page-timedate-settings.js" ]
       ~stylesheets:[ "/css/page-timedate-settings.min.css" ]
-      ~content:[ markup ] ()
+      ()
   in
   simple ~restrict:[ `Operator; `Guest ] ~priority:(`Index 10)
     ~title:"Дата и время"
-    ~icon:(icon Components_tyxml.Svg_icons.power)
+    ~icon:(icon Components_tyxml.Svg_icons.timer)
     ~path:(Path.of_string "settings/timedate")
     props

@@ -8,6 +8,8 @@ module CSS = struct
   let action = BEM.add_element root "action"
 end
 
+module Time = Time
+
 module NTP = Ntp
 
 module Timezone = Timezone

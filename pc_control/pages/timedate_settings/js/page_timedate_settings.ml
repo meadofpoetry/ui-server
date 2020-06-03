@@ -15,14 +15,19 @@ let on_loaded (scaffold : Scaffold.t) () =
     let*? socket = Api_js.Websocket.JSON.open_socket ~path:(Path.Format.of_string "ws") () in
     let*? state = Pc_control_http_js.Timedate.get_config () in
     let*? (_, state_ev) = Pc_control_http_js.Timedate.Event.get_config socket in
+    let*? zones = Pc_control_http_js.Timedate.get_timezones () in
     let ntp = Ntp_config.make state in
+    let time = Time_config.make state in
+    let timezone = Timezone_config.make zones state in
     let page =
       Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ D.create ~children:[ ntp#markup ] ()
+      @@ D.create ~children:[ ntp#markup; time#markup; timezone#markup ] ()
     in
     page#set_on_destroy (fun () ->
+        time#destroy ();
         ntp#destroy ();
+        timezone#destroy ();
         E.stop ~strong:true state_ev;
         Api_js.Websocket.close_socket socket);
     (* Setup *)

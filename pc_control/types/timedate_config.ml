@@ -12,3 +12,11 @@ let of_string x =
   Yojson.Safe.from_string x |> of_yojson |> function
   | Ok x -> x
   | Error e -> failwith e
+
+let default =
+  { timezone = "Europe/Moscow"
+  ; ntp = true
+  ; local_time = Ptime.epoch
+  ; ntp_server = None
+  ; ntp_ip = None
+  }
