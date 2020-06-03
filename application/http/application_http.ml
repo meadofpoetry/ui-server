@@ -254,6 +254,7 @@ let create templates (app : Application.t) foreign_pages foreing_handlers
       ( Pc_control_http.network_pages ()
       @ Pc_control_http.software_updates_pages ()
       @ Pc_control_http.power_pages ()
+      @ Pc_control_http.time_pages ()
       @ user_pages ()
       @ foreign_pages )
   in
@@ -303,6 +304,7 @@ let create templates (app : Application.t) foreign_pages foreing_handlers
          ( foreign_ws
          :: Pc_control_http.network_ws app.network
          :: Pc_control_http.software_updates_ws app.updates
+         :: Pc_control_http.time_ws app.timedate
          :: application_ws app
          :: board_ws
          :: proc_ws_list )

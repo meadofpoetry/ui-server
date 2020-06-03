@@ -8,6 +8,10 @@ module CSS = struct
   let action = BEM.add_element root "action"
 end
 
+module NTP = Ntp
+
+module Timezone = Timezone
+
 module Make
     (Xml : Xml_sigs.NoWrap)
     (Svg : Svg_sigs.NoWrap with module Xml := Xml)

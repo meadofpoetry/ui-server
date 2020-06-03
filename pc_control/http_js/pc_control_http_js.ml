@@ -86,17 +86,41 @@ end
 
 module Timedate = struct
 
+  module Event = struct
+    let get_config sock =
+      let of_yojson = Timedate_config.of_yojson in
+      Api_js.Websocket.JSON.subscribe
+        ~path:Path.Format.("timedate/config" @/ empty)
+        ~query:Query.empty of_yojson sock
+  end
+
   let get_config () =
-    Api_http.perform_unit ~meth:`GET
+    Api_http.perform ~meth:`GET
       ~path:Path.Format.("api/timedate/config" @/ empty)
       ~query:Query.empty
-      (fun _env res -> Lwt.return res)
+      (fun _env res ->
+        match res with
+        | Error _ as e -> Lwt.return e
+        | Ok js ->
+           match Timedate_config.of_yojson js with
+           | Error e ->
+              Lwt.return_error (`Msg e)
+           | Ok res ->
+              Lwt.return_ok res)
 
   let get_timezones () =
-    Api_http.perform_unit ~meth:`GET
+    Api_http.perform ~meth:`GET
       ~path:Path.Format.("api/timedate/timezones" @/ empty)
       ~query:Query.empty
-      (fun _env res -> Lwt.return res)
+      (fun _env res ->
+        match res with
+        | Error _ as e -> Lwt.return e
+        | Ok js ->
+           match Util_json.List.of_yojson Util_json.String.of_yojson js with
+           | Error e ->
+              Lwt.return_error (`Msg e)
+           | Ok res ->
+              Lwt.return_ok res)
 
   let set_timezone zone =
     Api_http.perform_unit ~meth:`POST

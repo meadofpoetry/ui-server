@@ -144,3 +144,29 @@ let time_handlers (t : Pc_control.Timedate.t) =
         ~query:Query.[ ("value", (module Single (Time_uri.Show))) ]
         (Pc_control.Timedate_api.set_time t);
     ]
+
+let time_ws (timedate : Pc_control.Timedate.t) =
+  let open Api_websocket in
+  make ~prefix:"timedate"
+    [
+      event_node ~doc:"Timedate configuration"
+        ~path:Path.Format.("config" @/ empty)
+        ~query:Query.empty
+        (Pc_control.Timedate_api.Event.get_config timedate);
+    ]
+
+let time_pages : 'a. unit -> 'a Api_template.item list =
+ fun () ->
+  let open Api_template in
+  let markup = Tyxml.Html.toelt @@ Page_power_management_tyxml.F.create () in
+  let props =
+    make_template_props ~title:"Дата и время"
+      ~post_scripts:[ `Src "/js/page-timedate-settings.js" ]
+      ~stylesheets:[ "/css/page-timedate-settings.min.css" ]
+      ~content:[ markup ] ()
+  in
+  simple ~restrict:[ `Operator; `Guest ] ~priority:(`Index 10)
+    ~title:"Дата и время"
+    ~icon:(icon Components_tyxml.Svg_icons.power)
+    ~path:(Path.of_string "settings/timedate")
+    props
