@@ -35,7 +35,7 @@ let create kv db =
   >>=? fun topology ->
   User.create kv >>=? fun users ->
   Pc_control.Network.create kv (* TODO version check *) >>=? fun network ->
-  Pc_control.Timedate.create () >>= fun timedate ->
+  Pc_control.Timedate.create kv >>=? fun timedate ->
   Pc_control.Software_updates.create "" () >>=? fun updates ->
   ( match topology with
   | `Boards _ -> Lwt.return_none
