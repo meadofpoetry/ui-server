@@ -6,17 +6,3 @@ type t =
   ; ntp_ip : Netlib.Ipaddr.V4.t option
   } [@@deriving yojson, eq]
 
-let to_string x = to_yojson x |> Yojson.Safe.to_string
-
-let of_string x =
-  Yojson.Safe.from_string x |> of_yojson |> function
-  | Ok x -> x
-  | Error e -> failwith e
-
-let default =
-  { timezone = "Europe/Moscow"
-  ; ntp = true
-  ; local_time = Ptime.epoch
-  ; ntp_server = None
-  ; ntp_ip = None
-  }

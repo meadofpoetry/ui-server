@@ -52,7 +52,7 @@ struct
         ()
     in
     let header =
-      create_section_header ~title:(`Text "Сетевые настройки даты и времени") ()
+      create_section_header ~title:(`Text "Автоматическое определение даты и времени") ()
     in
     create_section
       ?classes

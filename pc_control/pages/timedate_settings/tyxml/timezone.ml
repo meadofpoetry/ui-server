@@ -32,17 +32,17 @@ struct
       let tz_input_id = tz_id ^ "-id" in
       let classes = Option.map (fmap (fun x -> CSS.select :: x)) classes in
       let options = List.map (fun opt ->
-                        if opt == v.timezone
+                        if opt = v.timezone
                         then Native.option ?classes ~text:opt ~selected:true ()
                         else Native.option ?classes ~text:opt ())
                       options
       in
       Native.select ~a:[ a_id tz_id ] ?classes ~outlined:true
         ~input_id:tz_input_id
-        ~label:(return "Временные зоны") ~options ()
+        ~label:(return "Часовой пояс") ~options ()
     in
     let header =
-      create_section_header ~title:(`Text "Временная зона") ()
+      create_section_header ~title:(`Text "Часовой пояс") ()
     in
     create_section
       ?classes

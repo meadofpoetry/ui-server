@@ -1,12 +1,13 @@
-let ( let* ) = Lwt.bind
+open Pc_control_types
 
-module Timedate_options = Kv_v.RW (Pc_control_types.Timedate_config)
+let ( let* ) = Lwt.bind
 
 type t =
   { timezones : string list
   ; time_config : Timedate1.t
   ; ntp_config : Timesync1.t
-  ; options : Timedate_options.t
+  ; updates : Timedate_config.t React.event
+  ; push_updates : Timedate_config.t -> unit
   }
 
 let read_config state =
@@ -23,20 +24,16 @@ let read_config state =
   in
   Lwt.return { timezone; ntp; local_time; ntp_server; ntp_ip }
 
-let update_options state =
-  let* value = read_config state in
-  state.options#set value
+let push_update state =
+  let* conf = read_config state in
+  state.push_updates conf;
+  Lwt.return_unit
 
-let create (kv : Kv.RW.t) =
+let create () =
   let ( let* ) = Lwt.bind in
-  let ( let*? ) = Lwt_result.bind in
-  let options_path = [ "pc"; "timedate" ] in
-  let default = Pc_control_types.Timedate_config.default in
-  let*? options = Timedate_options.create ~default kv options_path in
   let* time_config = Timedate1.make () in
   let* ntp_config = Timesync1.make () in
   let* timezones = time_config#list_timezones in
   let* () = time_config#set_local_rtc true in
-  let state = { timezones; time_config; ntp_config; options } in
-  let* () = update_options state in
-  Lwt.return_ok state
+  let updates, push_updates = React.E.create () in
+  Lwt.return { timezones; time_config; ntp_config; updates; push_updates }

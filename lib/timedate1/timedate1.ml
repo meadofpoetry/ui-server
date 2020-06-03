@@ -54,7 +54,7 @@ let make () =
         let v = Time.Useconds.to_int64 time in
         OBus_method.call m_SetTime proxy (v, false, false)
 
-       method local_time =
+      method local_time =
         let prop = OBus_property.make p_RTCTimeUSec proxy in
         let* usec = OBus_property.get prop in
         Lwt.return (Time.Useconds.of_int64 usec)
