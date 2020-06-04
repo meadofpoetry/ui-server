@@ -14,7 +14,7 @@ let read_config state =
   let open Pc_control_types.Timedate_config in
   let* timezone = state.time_config#timezone in
   let* ntp = state.time_config#ntp in
-  let* local_time = state.time_config#local_time in
+  let* local_time = state.time_config#time in
   let* (ntp_server, ntp_ip) =
     if not ntp then Lwt.return (None, None)
     else
@@ -25,8 +25,8 @@ let read_config state =
   Lwt.return { timezone; ntp; local_time; ntp_server; ntp_ip }
 
 let push_update state =
-  let* conf = read_config state in
-  state.push_updates conf;
+  let* _conf = read_config state in
+  (*state.push_updates conf;*)
   Lwt.return_unit
 
 let create () =

@@ -23,11 +23,11 @@ class t (elt : Dom_html.element Js.t) =
 
     val ntp_server : string Textfield.t =
       let ntp_server_elt = Element.query_selector_exn elt Selector.ntp_server in
-      Textfield.attach ntp_server_elt
+      Textfield.attach ~validation:Textfield.Text ntp_server_elt
 
     val ntp_address : string Textfield.t =
       let ntp_address_elt = Element.query_selector_exn elt Selector.ntp_address in
-      Textfield.attach ntp_address_elt
+      Textfield.attach ~validation:Textfield.Text ntp_address_elt
 
     inherit Widget.t elt () as super
 
@@ -35,11 +35,13 @@ class t (elt : Dom_html.element Js.t) =
 
     val mutable _value = None
 
+    val mutable _set_by_user = false
+
     val _signal = signal
 
     method! init () : unit =
       self#handle_ntp_change;
-      _value <- self#value;
+      _value <- Some self#value;
       super#init ()
 
     method! initial_sync_with_dom () : unit =
@@ -47,6 +49,7 @@ class t (elt : Dom_html.element Js.t) =
         Js_of_ocaml_lwt.Lwt_js_events.
           [
             changes ntp#input#input_element (fun _ _ ->
+                _set_by_user <- true;
                 self#handle_ntp_change;
                 Lwt.return_unit);
           ];
@@ -71,6 +74,7 @@ class t (elt : Dom_html.element Js.t) =
           ntp_address#set_value ""
        | Some addr ->
           ntp_address#set_value (Ipaddr.V4.to_string addr));
+      _set_by_user <- false;
       self#handle_ntp_change;
       _value <- Some (flag, serv, addr)
 
@@ -84,15 +88,17 @@ class t (elt : Dom_html.element Js.t) =
          let ntp_flag = ntp#input#checked in
          let server = ntp_server#value in
          let address = ntp_address#value in
-         Some (ntp_flag, server, get_addr address)
+         (ntp_flag, server, get_addr address)
       | Some (_,serv,addr) ->
-         Some (ntp#input#checked, serv, addr)
+         (ntp#input#checked, serv, addr)
+
+    method disabled = signal
+
+    method set_by_user = _set_by_user
 
     method private handle_ntp_change =
       let disabled = ntp#input#checked in
       push disabled
-
-    method disabled = signal
 
   end
 

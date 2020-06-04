@@ -19,6 +19,10 @@ object (self)
 
   inherit Widget.t elt () as super
 
+  method value = "Europe/Moscow"
+
+  method set_by_user = false
+
 end
 
 let make (zones : string list)

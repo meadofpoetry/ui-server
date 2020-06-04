@@ -9,6 +9,42 @@ let ( let* ) = Lwt.bind
 
 let ( let*? ) = Lwt_result.bind
 
+let make_submit_button ntp time timezone =
+  Button.make ~appearance:Raised
+    ~on_click:(fun btn _ _ ->
+      (* TODO check errors *)
+      let (ntp_flag,_,_) = ntp#value in
+      let* res =
+        if ntp#set_by_user
+        then Pc_control_http_js.Timedate.set_ntp ntp_flag
+        else Lwt.return_ok ()
+      in
+      begin match res with
+      | Error (`Msg e) -> print_endline e
+      | _ -> ()
+      end;
+      let* res =
+        if (not ntp_flag)
+           && time#set_by_user
+        then Pc_control_http_js.Timedate.set_time time#value
+        else Lwt.return_ok ()
+      in
+      begin match res with
+      | Error (`Msg e) -> print_endline e
+      | _ -> ()
+      end;
+      let* res =
+        if timezone#set_by_user
+        then Pc_control_http_js.Timedate.set_timezone timezone#value
+        else Lwt.return_ok ()
+      in
+      begin match res with
+      | Error (`Msg e) -> print_endline e
+      | _ -> ()
+      end;
+      Lwt.return_unit)
+    ~label:"Применить" ()
+
 let on_loaded (scaffold : Scaffold.t) () =
   let thread =
     let open Lwt_react in
@@ -27,19 +63,25 @@ let on_loaded (scaffold : Scaffold.t) () =
     in
     let time_pusher = Dom_html.window##setInterval
                         (Js.wrap_callback (fun () ->
-                             mtimer_update (Mtime_clock.count mcounter);
-                             Printf.printf "Mtimer updated %f\n" (Mtime.Span.to_s (React.S.value mtimer))))
+                             mtimer_update (Mtime_clock.count mcounter)))
                         60000.0
     in
     
     (* Creating widgets *)
     let ntp = Ntp_config.make state in
     let time = Time_config.make state mtimer ntp#disabled in
-    let timezone = Timezone_config.make zones state in    
+    let timezone = Timezone_config.make zones state in
+    let submit = make_submit_button ntp time timezone in
     let page =
       Widget.create
       @@ Js_of_ocaml_tyxml.Tyxml_js.To_dom.of_element
-      @@ D.create ~children:[ ntp#markup; time#markup; timezone#markup ] ()
+      @@ D.create
+           ~children:[
+             ntp#markup;
+             time#markup;
+             timezone#markup;
+             submit#markup;
+           ] ()
     in
 
     let update_state (state : Pc_control_types.Timedate_config.t) =
@@ -48,6 +90,7 @@ let on_loaded (scaffold : Scaffold.t) () =
       time#set_value state.local_time
     in
     let event' = React.E.map update_state state_ev in
+    update_state state;
 
     page#set_on_destroy (fun () ->
         time#destroy ();

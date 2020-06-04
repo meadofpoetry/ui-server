@@ -127,17 +127,20 @@ module Timedate = struct
       ~path:Path.Format.("api/timedate/timezone" @/ empty)
       ~query:Query.[ ("value", (module Single (String))) ]
       zone
+      (fun _env res -> Lwt.return res)
 
   let set_ntp flag =
     Api_http.perform_unit ~meth:`POST
       ~path:Path.Format.("api/timedate/ntp" @/ empty)
       ~query:Query.[ ("flag", (module Single (Bool))) ]
       flag
+      (fun _env res -> Lwt.return res)
 
   let set_time value =
     Api_http.perform_unit ~meth:`POST
-      ~path:Path.Format.("api/timedate/ntp" @/ empty)
+      ~path:Path.Format.("api/timedate/time" @/ empty)
       ~query:Query.[ ("value", (module Single (Time_uri.Show))) ]
       value
+      (fun _env res -> Lwt.return res)
   
 end
