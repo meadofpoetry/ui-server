@@ -34,6 +34,7 @@ let create () =
   let* time_config = Timedate1.make () in
   let* ntp_config = Timesync1.make () in
   let* timezones = time_config#list_timezones in
-  let* () = time_config#set_local_rtc true in
+  (* Local clock is UTC I guess *)
+  let* () = time_config#set_local_rtc false in
   let updates, push_updates = React.E.create () in
   Lwt.return { timezones; time_config; ntp_config; updates; push_updates }
