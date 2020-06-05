@@ -22,7 +22,9 @@ let make () =
   Lwt.return
     (object
       method list_timezones =
-        OBus_method.call m_ListTimezones proxy ()
+        Lwt.catch
+          (fun () -> OBus_method.call m_ListTimezones proxy ())
+          (fun _ -> Lwt.return Timezones.timezones)
 
       method timezone =
         let prop = OBus_property.make p_Timezone proxy in
