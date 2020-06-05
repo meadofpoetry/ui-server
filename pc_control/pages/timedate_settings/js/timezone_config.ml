@@ -46,8 +46,8 @@ object (self)
     tz_selector#value_as_string
 
   method set_value nv =
-    _set_by_user <- false;
-    tz_selector#set_value_as_string nv
+    tz_selector#set_value_as_string nv;
+    _set_by_user <- false
   
   method set_by_user = _set_by_user
 
