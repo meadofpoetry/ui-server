@@ -25,8 +25,8 @@ let read_config state =
   Lwt.return { timezone; ntp; local_time; ntp_server; ntp_ip }
 
 let push_update state =
-  let* _conf = read_config state in
-  (*state.push_updates conf;*)
+  let* conf = read_config state in
+  state.push_updates conf;
   Lwt.return_unit
 
 let create () =

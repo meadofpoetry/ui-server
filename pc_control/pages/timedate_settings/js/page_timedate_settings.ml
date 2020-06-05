@@ -86,8 +86,12 @@ let on_loaded (scaffold : Scaffold.t) () =
 
     let update_state (state : Pc_control_types.Timedate_config.t) =
       let open Pc_control_types.Timedate_config in
+      print_endline "Got timedate update";
+      print_endline (Yojson.Safe.pretty_to_string
+                     @@ to_yojson state);
       ntp#set_value (state.ntp, state.ntp_server, state.ntp_ip);
-      time#set_value state.local_time
+      time#set_value state.local_time;
+      timezone#set_value state.timezone
     in
     let event' = React.E.map update_state state_ev in
     update_state state;
