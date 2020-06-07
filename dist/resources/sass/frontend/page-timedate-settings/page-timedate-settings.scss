@@ -1,0 +1,22 @@
+.settings-section#ntp-config,
+.settings-section#time-config,
+.settings-section#tz-config {
+    .mdc-form-field {
+        margin-bottom: 1rem;
+        label {
+            margin-left: 0;
+        }
+    }
+
+    .mdc-text-field:not(:last-child) {
+        margin-bottom: 1rem;
+    }
+}
+
+.settings-section#ntp-config,
+.settings-section#time-config,
+.settings-section#tz-config {
+    .mdc-card {
+        padding: 1rem;
+    }
+}
