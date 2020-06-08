@@ -26,7 +26,9 @@ class t (elt : Dom_html.element Js.t) =
       Textfield.attach ~validation:Textfield.Text ntp_server_elt
 
     val ntp_address : string Textfield.t =
-      let ntp_address_elt = Element.query_selector_exn elt Selector.ntp_address in
+      let ntp_address_elt =
+        Element.query_selector_exn elt Selector.ntp_address
+      in
       Textfield.attach ~validation:Textfield.Text ntp_address_elt
 
     inherit Widget.t elt () as super
@@ -62,35 +64,30 @@ class t (elt : Dom_html.element Js.t) =
       super#destroy ()
 
     method set_value
-             ((flag, serv, addr) : (bool * string option * Netlib.Ipaddr.V4.t option)) =
+        ((flag, serv, addr) : bool * string option * Netlib.Ipaddr.V4.t option)
+        =
       ntp#input#toggle ~force:flag ();
-      (match serv with
-       | None ->
-          ntp_server#set_value ""
-       | Some serv ->
-          ntp_server#set_value serv);
-      (match addr with
-       | None ->
-          ntp_address#set_value ""
-       | Some addr ->
-          ntp_address#set_value (Ipaddr.V4.to_string addr));
+      ( match serv with
+      | None -> ntp_server#set_value ""
+      | Some serv -> ntp_server#set_value serv );
+      ( match addr with
+      | None -> ntp_address#set_value ""
+      | Some addr -> ntp_address#set_value (Ipaddr.V4.to_string addr) );
       _set_by_user <- false;
       self#handle_ntp_change;
       _value <- Some (flag, serv, addr)
 
     method value =
       let get_addr a =
-        try Option.map Ipaddr.V4.of_string_exn a
-        with _ -> None
+        try Option.map Ipaddr.V4.of_string_exn a with _ -> None
       in
       match _value with
       | None ->
-         let ntp_flag = ntp#input#checked in
-         let server = ntp_server#value in
-         let address = ntp_address#value in
-         (ntp_flag, server, get_addr address)
-      | Some (_,serv,addr) ->
-         (ntp#input#checked, serv, addr)
+          let ntp_flag = ntp#input#checked in
+          let server = ntp_server#value in
+          let address = ntp_address#value in
+          (ntp_flag, server, get_addr address)
+      | Some (_, serv, addr) -> (ntp#input#checked, serv, addr)
 
     method disabled = signal
 
@@ -99,7 +96,6 @@ class t (elt : Dom_html.element Js.t) =
     method private handle_ntp_change =
       let disabled = ntp#input#checked in
       push disabled
-
   end
 
 let make (init : Pc_control_types.Timedate_config.t) : t =

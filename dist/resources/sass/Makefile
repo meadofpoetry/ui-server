@@ -29,6 +29,7 @@ pages:  ./frontend/page-input/page-input.min.css \
 				./frontend/page-power-management/page-power-management.min.css \
 				./frontend/page-server-settings/page-server-settings.min.css \
 				./frontend/page-user-settings/page-user-settings.min.css \
+				./frontend/page-timedate-settings/page-timedate-settings.min.css \
 				./frontend/page-error/page-error.min.css \
 				./frontend/page-logout/page-logout.min.css \
 				./frontend/boards/board-niitv-dvb4ch/page-input/board-niitv-dvb4ch-page-input.min.css \

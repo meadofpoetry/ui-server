@@ -14,6 +14,7 @@
   (page-power-management.min.css as css/page-power-management.min.css)
   (page-server-settings.min.css as css/page-server-settings.min.css)
   (page-user-settings.min.css as css/page-user-settings.min.css)
+  (page-timedate-settings.min.css as css/page-timedate-settings.min.css)
   (page-error.min.css as css/page-error.min.css)
   (page-logout.min.css as css/page-logout.min.css)
   (board-niitv-dvb4ch.min.css as css/board-niitv-dvb4ch.min.css)
