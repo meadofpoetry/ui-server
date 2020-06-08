@@ -3,91 +3,135 @@
 open OBus_value.C
 open OBus_member
 open OBus_object
-module Org_freedesktop_timesync1_Manager =
-struct
+
+module Org_freedesktop_timesync1_Manager = struct
   let interface = "org.freedesktop.timesync1.Manager"
-  let p_FallbackNTPServers = {
-    Property.interface = interface;
-    Property.member = "FallbackNTPServers";
-    Property.typ = array basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_Frequency = {
-    Property.interface = interface;
-    Property.member = "Frequency";
-    Property.typ = basic_int64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_LinkNTPServers = {
-    Property.interface = interface;
-    Property.member = "LinkNTPServers";
-    Property.typ = array basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_NTPMessage = {
-    Property.interface = interface;
-    Property.member = "NTPMessage";
-    Property.typ = structure (seq15 basic_uint32 basic_uint32 basic_uint32 basic_uint32 basic_int32 basic_uint64 basic_uint64 byte_array basic_uint64 basic_uint64 basic_uint64 basic_uint64 basic_boolean basic_uint64 basic_uint64);
-    Property.access = Property.readable;
-    Property.annotations = [];
-  }
-  let p_PollIntervalMaxUSec = {
-    Property.interface = interface;
-    Property.member = "PollIntervalMaxUSec";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_PollIntervalMinUSec = {
-    Property.interface = interface;
-    Property.member = "PollIntervalMinUSec";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_PollIntervalUSec = {
-    Property.interface = interface;
-    Property.member = "PollIntervalUSec";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_RootDistanceMaxUSec = {
-    Property.interface = interface;
-    Property.member = "RootDistanceMaxUSec";
-    Property.typ = basic_uint64;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
-  let p_ServerAddress = {
-    Property.interface = interface;
-    Property.member = "ServerAddress";
-    Property.typ = structure (seq2 basic_int32 byte_array);
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_ServerName = {
-    Property.interface = interface;
-    Property.member = "ServerName";
-    Property.typ = basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "false")];
-  }
-  let p_SystemNTPServers = {
-    Property.interface = interface;
-    Property.member = "SystemNTPServers";
-    Property.typ = array basic_string;
-    Property.access = Property.readable;
-    Property.annotations = [(OBus_introspect.emits_changed_signal, "const")];
-  }
+
+  let p_FallbackNTPServers =
+    {
+      Property.interface;
+      Property.member = "FallbackNTPServers";
+      Property.typ = array basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_Frequency =
+    {
+      Property.interface;
+      Property.member = "Frequency";
+      Property.typ = basic_int64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_LinkNTPServers =
+    {
+      Property.interface;
+      Property.member = "LinkNTPServers";
+      Property.typ = array basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_NTPMessage =
+    {
+      Property.interface;
+      Property.member = "NTPMessage";
+      Property.typ =
+        structure
+          (seq15 basic_uint32 basic_uint32 basic_uint32 basic_uint32 basic_int32
+             basic_uint64 basic_uint64 byte_array basic_uint64 basic_uint64
+             basic_uint64 basic_uint64 basic_boolean basic_uint64 basic_uint64);
+      Property.access = Property.readable;
+      Property.annotations = [];
+    }
+
+  let p_PollIntervalMaxUSec =
+    {
+      Property.interface;
+      Property.member = "PollIntervalMaxUSec";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_PollIntervalMinUSec =
+    {
+      Property.interface;
+      Property.member = "PollIntervalMinUSec";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_PollIntervalUSec =
+    {
+      Property.interface;
+      Property.member = "PollIntervalUSec";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_RootDistanceMaxUSec =
+    {
+      Property.interface;
+      Property.member = "RootDistanceMaxUSec";
+      Property.typ = basic_uint64;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
+  let p_ServerAddress =
+    {
+      Property.interface;
+      Property.member = "ServerAddress";
+      Property.typ = structure (seq2 basic_int32 byte_array);
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_ServerName =
+    {
+      Property.interface;
+      Property.member = "ServerName";
+      Property.typ = basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "false") ];
+    }
+
+  let p_SystemNTPServers =
+    {
+      Property.interface;
+      Property.member = "SystemNTPServers";
+      Property.typ = array basic_string;
+      Property.access = Property.readable;
+      Property.annotations = [ (OBus_introspect.emits_changed_signal, "const") ];
+    }
+
   type 'a members = {
     p_FallbackNTPServers : 'a OBus_object.t -> string list React.signal;
     p_Frequency : 'a OBus_object.t -> int64 React.signal;
     p_LinkNTPServers : 'a OBus_object.t -> string list React.signal;
-    p_NTPMessage : 'a OBus_object.t -> (int32 * int32 * int32 * int32 * int32 * int64 * int64 * string * int64 * int64 * int64 * int64 * bool * int64 * int64) React.signal;
+    p_NTPMessage :
+      'a OBus_object.t ->
+      ( int32
+      * int32
+      * int32
+      * int32
+      * int32
+      * int64
+      * int64
+      * string
+      * int64
+      * int64
+      * int64
+      * int64
+      * bool
+      * int64
+      * int64 )
+      React.signal;
     p_PollIntervalMaxUSec : 'a OBus_object.t -> int64 React.signal;
     p_PollIntervalMinUSec : 'a OBus_object.t -> int64 React.signal;
     p_PollIntervalUSec : 'a OBus_object.t -> int64 React.signal;
@@ -96,14 +140,9 @@ struct
     p_ServerName : 'a OBus_object.t -> string React.signal;
     p_SystemNTPServers : 'a OBus_object.t -> string list React.signal;
   }
+
   let make members =
-    OBus_object.make_interface_unsafe interface
-      [
-      ]
-      [|
-      |]
-      [|
-      |]
+    OBus_object.make_interface_unsafe interface [] [||] [||]
       [|
         property_r_info p_FallbackNTPServers members.p_FallbackNTPServers;
         property_r_info p_Frequency members.p_Frequency;

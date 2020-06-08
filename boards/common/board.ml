@@ -55,7 +55,7 @@ type t = {
   ports_active : bool React.signal Ports.t;
   ports_sync : bool React.signal Ports.t;
   stream_handler : stream_handler option;
-  state : < finalize : unit -> unit Lwt.t >; 
+  state : < finalize : unit -> unit Lwt.t >;
 }
 
 module type BOARD = sig

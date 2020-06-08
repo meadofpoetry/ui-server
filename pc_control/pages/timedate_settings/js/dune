@@ -2,7 +2,7 @@
  (name page_timedate_settings)
  (modes js)
  (libraries ptime.clock.jsoo mtime mtime.clock.jsoo
-            page_timedate_settings_tyxml pc_control_http_js components_lab)
+   page_timedate_settings_tyxml pc_control_http_js components_lab)
  (preprocess
   (pps js_of_ocaml-ppx)))
 

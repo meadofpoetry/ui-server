@@ -72,7 +72,8 @@ let create kv db =
   |> Util_react.E.aggregate (fun () -> Lwt_unix.sleep 1.0)
   |> E.map_p (fun x -> Database.Log.insert db @@ List.concat x)
   |> E.keep;
-  Lwt.return_ok ({ users; proc; network; timedate; updates; hw; db; topo = hw.topo }, loop)
+  Lwt.return_ok
+    ({ users; proc; network; timedate; updates; hw; db; topo = hw.topo }, loop)
 
 let redirect_filter app = Api.Authorize.auth (User.validate app.users)
 

@@ -9,9 +9,7 @@ module CSS = struct
 end
 
 module Time = Time
-
 module NTP = Ntp
-
 module Timezone = Timezone
 
 module Make

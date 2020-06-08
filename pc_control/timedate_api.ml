@@ -6,11 +6,8 @@ module Event = struct
   open Util_react
 
   let get_config (state : Timedate.t) _user =
-    let event =
-      E.map Timedate_config.to_yojson state.updates
-    in
+    let event = E.map Timedate_config.to_yojson state.updates in
     Lwt.return event
-  
 end
 
 let get_config (state : Timedate.t) _user _body _env _state =
@@ -23,13 +20,11 @@ let get_timezones (state : Timedate.t) _user _body _env _state =
   Lwt.return (`Value js)
 
 let set_timezone (state : Timedate.t) zone _user _body _env _state =
-  if (List.exists (fun z -> z = zone) state.timezones)
-  then
+  if List.exists (fun z -> z = zone) state.timezones then
     let* () = state.time_config#set_timezone zone in
     let* () = Timedate.push_update state in
     Lwt.return `Unit
-  else
-    Lwt.return (`Error ("zone " ^ zone ^ " is unknown"))
+  else Lwt.return (`Error ("zone " ^ zone ^ " is unknown"))
 
 let set_ntp (state : Timedate.t) flag _user _body _env _state =
   let* () = state.time_config#set_ntp flag in

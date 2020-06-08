@@ -30,16 +30,16 @@ class type t =
 
     method remove_from_selection : Dom_html.element Js.t -> unit
 
-    (** Clear the elements which were saved by 'keep_selection'. *)
     method clear_selection : ?store:bool -> unit -> unit
+    (** Clear the elements which were saved by 'keep_selection'. *)
 
+    method resolve_selectables : unit -> unit
     (** Can be used if during a selection elements have been added. Will update
         everything which can be selected. *)
-    method resolve_selectables : unit -> unit
 
+    method keep_selection : unit -> unit
     (** Saves the current selection for the next selection. Allowes multiple
         selections. *)
-    method keep_selection : unit -> unit
 
     method select : Dom_html.element Js.t list -> unit
 

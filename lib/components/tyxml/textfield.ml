@@ -180,7 +180,8 @@ struct
       ?required ?typ ?input_mode ?readonly
       ?(input =
         textfield_input ?id:input_id ?pattern ?min_length ?max_length ?step
-          ?value ?placeholder ?required ?typ ?input_mode ?readonly ()) () : 'a elt =
+          ?value ?placeholder ?required ?typ ?input_mode ?readonly ()) () :
+      'a elt =
     let outline =
       match (outline, outlined) with
       | (Some _ as x), _ -> x

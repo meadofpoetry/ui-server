@@ -85,7 +85,6 @@ module Power = struct
 end
 
 module Timedate = struct
-
   module Event = struct
     let get_config sock =
       let of_yojson = Timedate_config.of_yojson in
@@ -101,12 +100,10 @@ module Timedate = struct
       (fun _env res ->
         match res with
         | Error _ as e -> Lwt.return e
-        | Ok js ->
-           match Timedate_config.of_yojson js with
-           | Error e ->
-              Lwt.return_error (`Msg e)
-           | Ok res ->
-              Lwt.return_ok res)
+        | Ok js -> (
+            match Timedate_config.of_yojson js with
+            | Error e -> Lwt.return_error (`Msg e)
+            | Ok res -> Lwt.return_ok res ))
 
   let get_timezones () =
     Api_http.perform ~meth:`GET
@@ -115,12 +112,10 @@ module Timedate = struct
       (fun _env res ->
         match res with
         | Error _ as e -> Lwt.return e
-        | Ok js ->
-           match Util_json.List.of_yojson Util_json.String.of_yojson js with
-           | Error e ->
-              Lwt.return_error (`Msg e)
-           | Ok res ->
-              Lwt.return_ok res)
+        | Ok js -> (
+            match Util_json.List.of_yojson Util_json.String.of_yojson js with
+            | Error e -> Lwt.return_error (`Msg e)
+            | Ok res -> Lwt.return_ok res ))
 
   let set_timezone zone =
     Api_http.perform_unit ~meth:`POST
@@ -142,5 +137,4 @@ module Timedate = struct
       ~query:Query.[ ("value", (module Single (Time_uri.Show))) ]
       value
       (fun _env res -> Lwt.return res)
-  
 end

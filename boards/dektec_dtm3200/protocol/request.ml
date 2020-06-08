@@ -25,11 +25,11 @@ type data = [ `B of bool | `I8 of int | `I16 of int | `I32 of int32 ]
 type access = R | W | E [@@deriving eq]
 
 type category =
-  [ `Device[@value 0x01]
+  [ `Device [@value 0x01]
   | `Configuration
   | `Network
-  | `IP_receive[@value 0x81]
-  | `ASI_output[@value 0x84] ]
+  | `IP_receive [@value 0x81]
+  | `ASI_output [@value 0x84] ]
 [@@deriving eq, enum]
 
 type 'a cmd = { category : category; setting : int; data : 'a; rw : access }
@@ -77,7 +77,7 @@ let check_cmd (eq : 'a -> 'a -> bool) (_of : int -> 'a option)
 
 module Device = struct
   type setting =
-    [ `FPGA_version[@value 0x01]
+    [ `FPGA_version [@value 0x01]
     | `Hardware_version
     | `Firmware_version
     | `Serial_number
@@ -139,7 +139,7 @@ module Device = struct
 end
 
 module Configuration = struct
-  type setting = [ `Mode[@value 0x01] | `Application | `Volatile_storage ]
+  type setting = [ `Mode [@value 0x01] | `Application | `Volatile_storage ]
   [@@deriving eq, enum]
 
   type _ t =
@@ -199,7 +199,7 @@ end
 
 module Network = struct
   type setting =
-    [ `IP_address[@value 0x01]
+    [ `IP_address [@value 0x01]
     | `Subnet_mask
     | `Gateway
     | `DHCP
@@ -293,7 +293,7 @@ end
 
 module Ip_receive = struct
   type setting =
-    [ `Addressing_method[@value 0x01]
+    [ `Addressing_method [@value 0x01]
     | `Enable
     | `FEC_delay
     | `FEC_enable
@@ -521,7 +521,7 @@ module Ip_receive = struct
 end
 
 module Asi_output = struct
-  type setting = [ `Packet_size[@value 0x01] | `Physical_port | `Bitrate ]
+  type setting = [ `Packet_size [@value 0x01] | `Physical_port | `Bitrate ]
   [@@deriving eq, enum]
 
   type _ t =
