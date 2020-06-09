@@ -13,22 +13,30 @@ let ( let*? ) = Lwt_result.bind
 let make_submit_button ntp time timezone =
   Button.make ~appearance:Raised
     ~on_click:(fun btn _ _ ->
-      (* TODO check errors *)
+      (* We need to retrieve all values 
+       before making any requests since
+       requests can trigger socket events,
+       hence they could rewrite the values *)
       let ntp_flag, _, _ = ntp#value in
+      let ntp_set_by_user = ntp#set_by_user in
+      let time_value = time#value in
+      let time_set_by_user = time#set_by_user in
+      let timezone_value = timezone#value in
+      let timezone_set_by_user = timezone#set_by_user in
       let* res =
-        if ntp#set_by_user then Pc_control_http_js.Timedate.set_ntp ntp_flag
+        if ntp_set_by_user then Pc_control_http_js.Timedate.set_ntp ntp_flag
         else Lwt.return_ok ()
       in
       (match res with Error (`Msg e) -> print_endline e | _ -> ());
       let* res =
-        if (not ntp_flag) && time#set_by_user then
-          Pc_control_http_js.Timedate.set_time time#value
+        if (not ntp_flag) && time_set_by_user then
+          Pc_control_http_js.Timedate.set_time time_value
         else Lwt.return_ok ()
       in
       (match res with Error (`Msg e) -> print_endline e | _ -> ());
       let* res =
-        if timezone#set_by_user then
-          Pc_control_http_js.Timedate.set_timezone timezone#value
+        if timezone_set_by_user then
+          Pc_control_http_js.Timedate.set_timezone timezone_value
         else Lwt.return_ok ()
       in
       (match res with Error (`Msg e) -> print_endline e | _ -> ());
