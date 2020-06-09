@@ -52,7 +52,7 @@ let set_timezone (state : Timedate.t) zone _user _body _env _state =
               m "Timedate requested timezone update: %s" zone)
         in
         (* God forgive me *)
-        let timer = 2.0 in
+        let timer = 1.0 in
         Lwt.async (fun () ->
             let* () = Lwt_unix.sleep timer in
             Timedate.update_event state);
@@ -67,7 +67,7 @@ let set_ntp (state : Timedate.t) flag _user _body _env _state =
             m "Timedate requested ntp state update: %b" flag)
       in
       (* This is not how it should be done *)
-      let timer = 2.0 in
+      let timer = 1.0 in
       Lwt.async (fun () ->
           let* () = Lwt_unix.sleep timer in
           Timedate.update_event state);
@@ -83,7 +83,7 @@ let set_time (state : Timedate.t) time _user _body _env _state =
               (Time.to_human_string ?tz_offset_s time))
       in
       (* This is not how it should be done *)
-      let timer = 2.0 in
+      let timer = 1.0 in
       Lwt.async (fun () ->
           let* () = Lwt_unix.sleep timer in
           Timedate.update_event state);
