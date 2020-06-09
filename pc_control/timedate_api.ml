@@ -83,7 +83,7 @@ let set_time (state : Timedate.t) time _user _body _env _state =
               (Time.to_human_string ?tz_offset_s time))
       in
       (* This is not how it should be done *)
-      let timer = Lwt_timeout.create 3 (fun () ->
+      let timer = Lwt_timeout.create 2 (fun () ->
                       Lwt.async (fun () -> Timedate.update_event state))
       in
       Lwt_timeout.start timer;
