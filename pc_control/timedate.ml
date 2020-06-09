@@ -5,6 +5,8 @@ let ( let* ) = Lwt.bind
 type t = {
   timezones : string list;
   time_config : Timedate1.t;
+  updates : Timedate_config.t React.event;
+  push_updates : Timedate_config.t -> unit;
 }
 
 let read_ntp_config () =
@@ -28,10 +30,27 @@ let read_config state =
   in
   Lwt.return { timezone; ntp; local_time; ntp_server; ntp_ip }
 
+(* This is one hell of a dirty hack,
+an abominable workaround.
+
+The right way to implement update events
+would be monitoring of time_config updates,
+as it was implemented in time_config#changes.
+
+The problem is that somehow when the OBus_monitor
+is attached to the Time property of DBus object,
+the property stops to update, even though the time value
+changes normally. Seems like a bug in either OBus or
+Timedate daemon. *)
+let update_event state =
+  let* conf = read_config state in
+  Lwt.return (state.push_updates conf)
+
 let create () =
   let ( let* ) = Lwt.bind in
   let* time_config = Timedate1.make () in
   let* timezones = time_config#list_timezones in
   (* Local clock is UTC I guess *)
   let* () = time_config#set_local_rtc false in
-  Lwt.return { timezones; time_config; }
+  let updates, push_updates = React.E.create () in
+  Lwt.return { timezones; time_config; updates; push_updates }

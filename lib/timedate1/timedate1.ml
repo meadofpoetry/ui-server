@@ -11,7 +11,7 @@ type t =
   ; time : Time.t Lwt.t
   ; set_time : Time.t -> unit Lwt.t
   ; local_time : Time.t Lwt.t
-  ; signal : (bool * Time.t * string) React.signal Lwt.t >
+  ; changes : unit React.event Lwt.t >
 
 let make () =
   let ( let* ) = Lwt.bind in
@@ -25,26 +25,10 @@ let make () =
   in
   Lwt.return
     (object
-       method signal =
-         let* tz =
-           OBus_property.monitor
-           @@ OBus_property.make p_Timezone proxy
-         in
-         let* time =
-           OBus_property.monitor
-           @@ OBus_property.make p_TimeUSec proxy
-         in
-         let* ntp =
-           OBus_property.monitor
-           @@ OBus_property.make p_NTP proxy
-         in
-         Lwt.return
-         @@ Lwt_react.S.l3
-              (fun ntp time tz ->
-                (ntp, time, tz))
-              ntp
-              (Lwt_react.S.map Time.Useconds.of_int64 time)
-              tz
+       method changes =
+         let group = OBus_property.group proxy "org.freedesktop.timedate1" in
+         let* signal = OBus_property.monitor_group group in
+         Lwt.return (Lwt_react.E.map (fun _ -> ()) @@ Lwt_react.S.changes signal)
          
        method list_timezones =
          Lwt.catch

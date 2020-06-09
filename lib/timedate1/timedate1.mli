@@ -9,6 +9,6 @@ type t =
   ; time : Time.t Lwt.t
   ; set_time : Time.t -> unit Lwt.t
   ; local_time : Time.t Lwt.t
-  ; signal : (bool * Time.t * string) React.signal Lwt.t >
+  ; changes : unit React.event Lwt.t >
 
 val make : unit -> t Lwt.t

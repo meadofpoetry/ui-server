@@ -6,7 +6,12 @@ let time_lock = Lwt_mutex.create ()
 
 module Event = struct
   open Util_react
+  
+  let get_config (state : Timedate.t) _user =
+    let event = React.E.map Timedate_config.to_yojson state.updates in
+    Lwt.return event
 
+  (*
   let get_config (state : Timedate.t) _user =
     let on_update _ =
       let* conf = Timedate.read_config state in
@@ -19,6 +24,7 @@ module Event = struct
       |> E.map_p on_update
     in
     Lwt.return event
+   *)
 end
 
 let get_config (state : Timedate.t) _user _body _env _state =
@@ -45,6 +51,11 @@ let set_timezone (state : Timedate.t) zone _user _body _env _state =
           Logs_lwt.info (fun m ->
               m "Timedate requested timezone update: %s" zone)
         in
+        (* God forgive me *)
+        let timer = Lwt_timeout.create 1 (fun () ->
+                        Lwt.async (fun () -> Timedate.update_event state))
+        in
+        Lwt_timeout.start timer;
         Lwt.return `Unit
       else Lwt.return (`Error ("zone " ^ zone ^ " is unknown")))
 
@@ -55,6 +66,11 @@ let set_ntp (state : Timedate.t) flag _user _body _env _state =
         Logs_lwt.info (fun m ->
             m "Timedate requested ntp state update: %b" flag)
       in
+      (* This is not how it should be done *)
+      let timer = Lwt_timeout.create 1 (fun () ->
+                      Lwt.async (fun () -> Timedate.update_event state))
+      in
+      Lwt_timeout.start timer;
       Lwt.return `Unit)
 
 let set_time (state : Timedate.t) time _user _body _env _state =
@@ -66,4 +82,9 @@ let set_time (state : Timedate.t) time _user _body _env _state =
             m "Timedate requested time update: %s"
               (Time.to_human_string ?tz_offset_s time))
       in
+      (* This is not how it should be done *)
+      let timer = Lwt_timeout.create 3 (fun () ->
+                      Lwt.async (fun () -> Timedate.update_event state))
+      in
+      Lwt_timeout.start timer;
       Lwt.return `Unit)
