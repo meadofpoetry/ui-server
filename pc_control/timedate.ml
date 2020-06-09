@@ -5,8 +5,6 @@ let ( let* ) = Lwt.bind
 type t = {
   timezones : string list;
   time_config : Timedate1.t;
-  updates : Timedate_config.t React.event;
-  push_updates : Timedate_config.t -> unit;
 }
 
 let read_ntp_config () =
@@ -30,16 +28,10 @@ let read_config state =
   in
   Lwt.return { timezone; ntp; local_time; ntp_server; ntp_ip }
 
-let push_update state =
-  let* conf = read_config state in
-  state.push_updates conf;
-  Lwt.return_unit
-
 let create () =
   let ( let* ) = Lwt.bind in
   let* time_config = Timedate1.make () in
   let* timezones = time_config#list_timezones in
   (* Local clock is UTC I guess *)
   let* () = time_config#set_local_rtc false in
-  let updates, push_updates = React.E.create () in
-  Lwt.return { timezones; time_config; updates; push_updates }
+  Lwt.return { timezones; time_config; }

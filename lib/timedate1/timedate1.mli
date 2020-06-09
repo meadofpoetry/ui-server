@@ -8,6 +8,7 @@ type t =
   ; set_ntp : bool -> unit Lwt.t
   ; time : Time.t Lwt.t
   ; set_time : Time.t -> unit Lwt.t
-  ; local_time : Time.t Lwt.t >
+  ; local_time : Time.t Lwt.t
+  ; signal : (bool * Time.t * string) React.signal Lwt.t >
 
 val make : unit -> t Lwt.t
