@@ -22,7 +22,12 @@ let log_level_to_human_string : Stream.Log_message.level -> string = function
   | Err -> "Ошибка"
   | Fatal -> "Авария"
 
+module type Clock = sig
+  val current_tz_offset_s : unit -> int option
+end
+
 module Make
+    (Clock : Clock)
     (Xml : Intf.Xml)
     (Svg : Svg_sigs.T with module Xml := Xml)
     (Html : Html_sigs.T with module Xml := Xml and module Svg := Svg) =
@@ -35,9 +40,13 @@ struct
   module Card_markup = Card.Make (Xml) (Svg) (Html)
 
   let timestamp_fmt =
+    let to_string ts =
+      let tz_offset_s = Clock.current_tz_offset_s () in
+      Time.to_human_string ?tz_offset_s ts
+    in
     Fmt.Custom
       {
-        to_string = Time.to_human_string;
+        to_string;
         of_string = (fun _ -> assert false) (* TODO *);
         compare = Ptime.compare;
         is_numeric = false;
@@ -134,4 +143,4 @@ struct
     Card_markup.card ~a:(a_class classes :: a) ~children ()
 end
 
-module F = Make (Impl.Xml) (Impl.Svg) (Impl.Html)
+module F (Clock : Clock) = Make (Clock) (Impl.Xml) (Impl.Svg) (Impl.Html)

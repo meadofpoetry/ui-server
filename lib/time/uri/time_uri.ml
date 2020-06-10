@@ -156,5 +156,7 @@ module Show_relative = struct
            (or_O seconds)
     in
     let parser = prefix *> (value <|> empty) in
-    s |> parse_string parser |> function Error e -> failwith e | Ok v -> v
+    s |> parse_string (*~consume:Consume.All*) parser |> function
+    | Error e -> failwith e
+    | Ok v -> v
 end

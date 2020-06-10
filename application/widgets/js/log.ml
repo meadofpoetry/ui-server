@@ -1,8 +1,8 @@
 open Js_of_ocaml
 open Components
 include Application_widgets_tyxml.Log
-module D = Make (Impl.Xml) (Impl.Svg) (Impl.Html)
-module R = Make (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
+module D = Make (Ptime_clock) (Impl.Xml) (Impl.Svg) (Impl.Html)
+module R = Make (Ptime_clock) (Impl.R.Xml) (Impl.R.Svg) (Impl.R.Html)
 
 module Selector = struct
   let has_more = Printf.sprintf ".%s" CSS.has_more

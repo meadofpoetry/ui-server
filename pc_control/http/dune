@@ -1,4 +1,4 @@
 (library
  (name pc_control_http)
- (libraries pc_control api_cohttp_template api_websocket
+ (libraries pc_control time_uri api_cohttp_template api_websocket
    page_power_management_tyxml))

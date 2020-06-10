@@ -149,7 +149,7 @@ struct
 
   let textfield_input ?(classes = return []) ?(a = []) ?id ?pattern ?min_length
       ?max_length ?step ?value ?placeholder ?(required = false)
-      ?(disabled = false) ?(typ = `Text) ?input_mode () =
+      ?(disabled = false) ?(typ = `Text) ?(readonly = false) ?input_mode () =
     let classes = fmap (fun x -> CSS.input :: x) classes in
     input
       ~a:
@@ -157,6 +157,7 @@ struct
           a_class classes :: a_input_type (return typ) :: a
           |> map_cons_option a_inputmode input_mode
           |> cons_if_lazy disabled a_disabled
+          |> cons_if_lazy readonly a_readonly
           |> map_cons_option a_id id
           |> map_cons_option a_pattern pattern
           |> map_cons_option a_minlength min_length
@@ -176,10 +177,11 @@ struct
       ?leading_icon ?trailing_icon ?(fullwidth = false) ?(textarea = false)
       ?(focused = false) ?label ?outline ?(outlined = false) ?line_ripple
       ?input_id ?pattern ?min_length ?max_length ?step ?value ?placeholder
-      ?required ?typ ?input_mode
+      ?required ?typ ?input_mode ?readonly
       ?(input =
         textfield_input ?id:input_id ?pattern ?min_length ?max_length ?step
-          ?value ?placeholder ?required ?typ ?input_mode ()) () : 'a elt =
+          ?value ?placeholder ?required ?typ ?input_mode ?readonly ()) () :
+      'a elt =
     let outline =
       match (outline, outlined) with
       | (Some _ as x), _ -> x

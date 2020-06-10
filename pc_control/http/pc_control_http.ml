@@ -118,3 +118,54 @@ let power_pages : 'a. unit -> 'a Api_template.item list =
     ~icon:(icon Components_tyxml.Svg_icons.power)
     ~path:(Path.of_string "settings/power")
     props
+
+let time_handlers (t : Pc_control.Timedate.t) =
+  let open Api_http in
+  make ~prefix:"timedate"
+    [
+      node ~doc:"Timedate config" ~restrict:[ `Guest; `Operator ] ~meth:`GET
+        ~path:Path.Format.("config" @/ empty)
+        ~query:Query.empty
+        (Pc_control.Timedate_api.get_config t);
+      node ~doc:"List timezones" ~restrict:[ `Guest; `Operator ] ~meth:`GET
+        ~path:Path.Format.("timezones" @/ empty)
+        ~query:Query.empty
+        (Pc_control.Timedate_api.get_timezones t);
+      node ~doc:"Set timezone" ~restrict:[ `Guest; `Operator ] ~meth:`POST
+        ~path:Path.Format.("timezone" @/ empty)
+        ~query:Query.[ ("value", (module Single (String))) ]
+        (Pc_control.Timedate_api.set_timezone t);
+      node ~doc:"Set ntp" ~restrict:[ `Guest; `Operator ] ~meth:`POST
+        ~path:Path.Format.("ntp" @/ empty)
+        ~query:Query.[ ("flag", (module Single (Bool))) ]
+        (Pc_control.Timedate_api.set_ntp t);
+      node ~doc:"Set time" ~restrict:[ `Guest; `Operator ] ~meth:`POST
+        ~path:Path.Format.("time" @/ empty)
+        ~query:Query.[ ("value", (module Single (Time_uri.Show))) ]
+        (Pc_control.Timedate_api.set_time t);
+    ]
+
+let time_ws (timedate : Pc_control.Timedate.t) =
+  let open Api_websocket in
+  make ~prefix:"timedate"
+    [
+      event_node ~doc:"Timedate configuration"
+        ~path:Path.Format.("config" @/ empty)
+        ~query:Query.empty
+        (Pc_control.Timedate_api.Event.get_config timedate);
+    ]
+
+let time_pages : 'a. unit -> 'a Api_template.item list =
+ fun () ->
+  let open Api_template in
+  let props =
+    make_template_props ~title:"Дата и время"
+      ~post_scripts:[ `Src "/js/page-timedate-settings.js" ]
+      ~stylesheets:[ "/css/page-timedate-settings.min.css" ]
+      ()
+  in
+  simple ~restrict:[ `Operator; `Guest ] ~priority:(`Index 10)
+    ~title:"Дата и время"
+    ~icon:(icon Components_tyxml.Svg_icons.timer)
+    ~path:(Path.of_string "settings/timedate")
+    props

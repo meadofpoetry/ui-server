@@ -478,6 +478,8 @@ class ['a] t ?on_input ?(validate_on_blur = true)
 
     method trailing_icon : Icon.t option = trailing_icon
 
+    method readonly : bool = Js.to_bool input_elt##.readOnly
+
     method disabled : bool = Js.to_bool input_elt##.disabled
 
     method set_disabled (x : bool) : unit =
@@ -686,16 +688,17 @@ class ['a] t ?on_input ?(validate_on_blur = true)
 
     method private activate_focus () : unit =
       is_focused <- true;
-      self#style_focused is_focused;
-      Option.iter
-        (fun (line_ripple : Line_ripple.t) -> line_ripple#activate ())
-        line_ripple;
-      Option.iter
-        (fun (label : Floating_label.t) ->
-          self#notch_outline self#should_float;
-          label#float self#should_float;
-          label#shake self#should_shake)
-        floating_label;
+      if not self#readonly then (
+        self#style_focused is_focused;
+        Option.iter
+          (fun (line_ripple : Line_ripple.t) -> line_ripple#activate ())
+          line_ripple;
+        Option.iter
+          (fun (label : Floating_label.t) ->
+            self#notch_outline self#should_float;
+            label#float self#should_float;
+            label#shake self#should_shake)
+          floating_label );
       Option.iter
         (fun (x : Helper_text.t) -> x#show_to_screen_reader ())
         helper_text

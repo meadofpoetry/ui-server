@@ -1,0 +1,3 @@
+(library
+ (name page_timedate_settings_tyxml)
+ (libraries ui_templates_tyxml components_lab_tyxml pc_control_types))

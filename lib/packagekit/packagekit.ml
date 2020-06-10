@@ -25,8 +25,8 @@ class transaction obj =
 
     method refresh_cache =
       OBus_method.call
-        PK_trans_iface.Org_freedesktop_PackageKit_Transaction.m_RefreshCache
-        obj true
+        PK_trans_iface.Org_freedesktop_PackageKit_Transaction.m_RefreshCache obj
+        true
 
     method package =
       OBus_signal.make

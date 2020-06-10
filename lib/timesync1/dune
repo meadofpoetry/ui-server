@@ -1,0 +1,3 @@
+(library
+ (name timesync1)
+ (libraries netlib obus))
